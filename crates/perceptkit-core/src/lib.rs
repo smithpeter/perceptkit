@@ -34,6 +34,8 @@ pub use feature::{
 pub use gate::{ConfidenceGate, GateVerdict, ThresholdGate};
 pub use matcher::{Arbiter, EvalCtx, PriorityArbiter, RuleMatcher, SceneMatch, SimpleRuleMatcher};
 pub use queue::{PendingRow, PendingSceneQueue, PendingStatus};
+#[cfg(feature = "local-reflector")]
+pub use reflector::{LocalConfig, LocalReflector};
 pub use reflector::{
     MockReflector, NoopReflector, PendingCase, Reflection, ReflectionBudget, Reflector,
 };

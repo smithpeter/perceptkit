@@ -20,6 +20,16 @@ async-trait = { workspace = true }
 rusqlite = { workspace = true }
 strsim = { workspace = true }
 
+# Optional: LocalReflector (Qwen-0.5B via llama.cpp). Feature-gated to keep
+# core build lightweight. Enable with `--features local-reflector`.
+llama-cpp-2 = { version = "0.1", optional = true, default-features = false, features = ["metal"] }
+
+[features]
+default = []
+# Enable LocalReflector with llama.cpp backend (Metal on macOS).
+# Requires a GGUF model file at a path you configure at runtime.
+local-reflector = ["dep:llama-cpp-2"]
+
 [dev-dependencies]
 proptest = { workspace = true }
 insta = { workspace = true }

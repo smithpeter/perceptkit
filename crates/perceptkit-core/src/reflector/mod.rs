@@ -1,8 +1,12 @@
 //! Cold Path Reflector — LLM tool-calling agent for uncertain scenes.
 
+#[cfg(feature = "local-reflector")]
+pub mod local;
 pub mod mock;
 pub mod noop;
 
+#[cfg(feature = "local-reflector")]
+pub use local::{LocalConfig, LocalReflector};
 pub use mock::MockReflector;
 pub use noop::NoopReflector;
 

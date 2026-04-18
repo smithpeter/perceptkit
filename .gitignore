@@ -40,3 +40,8 @@ dataset/raw/
 # Local
 .env
 .env.local
+
+# Models (too large for git, tracked via docs/ instructions)
+models/
+*.gguf
+*.bin
