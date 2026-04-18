@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/perceptkit-core",
+    "crates/perceptkit-audio",
+    "crates/perceptkit-py",
+]
+
+[workspace.package]
+version = "0.1.0-alpha.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/smithpeter/perceptkit"
+homepage = "https://github.com/smithpeter/perceptkit"
+authors = ["smithpeter <zouyongming@gmail.com>"]
+readme = "README.md"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_yml = "0.0.12"
+thiserror = "1"
+tracing = "0.1"
+async-trait = "0.1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+ndarray = "0.15"
+
+# dev
+proptest = "1"
+insta = "1"
+criterion = "0.5"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

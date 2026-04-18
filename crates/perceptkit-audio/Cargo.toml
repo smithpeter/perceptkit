@@ -1,0 +1,23 @@
+[package]
+name = "perceptkit-audio"
+description = "Audio provider and feature extractors for perceptkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-alpha.0" }
+ndarray = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }

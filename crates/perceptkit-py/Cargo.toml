@@ -1,0 +1,21 @@
+[package]
+name = "perceptkit-py"
+description = "Python bindings for perceptkit (not published to crates.io)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+name = "_perceptkit"
+crate-type = ["cdylib"]
+
+[dependencies]
+perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-alpha.0" }
+perceptkit-audio = { path = "../perceptkit-audio", version = "0.1.0-alpha.0" }
+pyo3 = { version = "0.21", features = ["extension-module", "abi3-py311"] }
+numpy = "0.21"

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Auto-append Signed-off-by if missing. Enable: `git config core.hooksPath .githooks`
+
+set -e
+
+commit_msg_file="$1"
+
+if ! grep -qE "^Signed-off-by: " "$commit_msg_file"; then
+    name=$(git config user.name)
+    email=$(git config user.email)
+    if [ -z "$name" ] || [ -z "$email" ]; then
+        echo "ERROR: git user.name or user.email not set." >&2
+        exit 1
+    fi
+    echo "" >> "$commit_msg_file"
+    echo "Signed-off-by: $name <$email>" >> "$commit_msg_file"
+fi
