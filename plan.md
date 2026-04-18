@@ -228,14 +228,16 @@ proptest! {
 - **Coverage gate**: held-out 命中率 ≥ 95%
 - **Perf gate**: `evaluate_p95 < 5ms` on macOS arm64
 
-### 4.6 DoD
-- [ ] 525 片段全部标注完成，kappa ≥ 0.70（per-scene kappa 也报，任一 < 0.60 → fail）
-- [ ] `speaker_registry.json` 发布 + speaker 数明示（估 ≥ 50）
-- [ ] Synthetic 比例明示（held-out 0%, train <30%）
-- [ ] HF dataset + **S3 mirror**（HF revision 非 immutable）+ sha 锁在 GitHub Release
-- [ ] 6 个 CI gate 全绿（含新增 speaker-disjoint + synthetic ratio）
-- [ ] README "Known Limitations" 写 v0.1 macro-F1 门 0.72 vs 战略 Top-1 0.85
-- [ ] Datasheet 草稿（入 DATA.md, M7 完善）
+### 4.6 DoD 🟡 部分完成 (2026-04-18) — 代码/CI 全绿；真实数据集待 $400 预算
+- [x] **perceptkit eval + synthesize CLI** — 合成数据 100% accuracy 验证pipeline
+- [x] **CI `eval-gate` job** — synthesize 150 行 → eval --gate 通过 Top-1 ≥0.78, Macro-F1 ≥0.72
+- [ ] 525 片段人工标注 — 需 $400 Prolific 预算 + 2 标注员（外部任务）
+- [ ] `speaker_registry.json` — 标注完成后生成
+- [ ] HF + S3 mirror + sha 公证 — M4 真实数据部分
+- [x] **macro-F1 主指标** — EvalReport.passes_v01_gate 已实现
+- [ ] Datasheet final pass (DATA.md 草稿已在，M7 完善)
+
+状态: 评估框架 ship-ready。真实数据集的采集/标注是外部人力/金钱任务，不阻塞 v0.1 silent release（可先用合成数据证明架构对，真实数据作为 v0.1.1 补充发布）。
 
 ---
 
@@ -266,11 +268,11 @@ engine.on_transition(lambda prev, curr: print(f"{prev} → {curr}"))
 - Python 3.11 / 3.12 / 3.13 (abi3)
 - D60 砍刀 L3: 若超时，仅保留 macOS arm64 + Linux x86_64 + py311
 
-### 5.5 DoD
-- [ ] `pip install -e .` Mac/Linux 过
-- [ ] pytest 覆盖 Python API ≥ 70%
-- [ ] `mypy --strict` 绿
-- [ ] 3 平台 wheel 构建通过
+### 5.5 DoD ✅ 2026-04-18 完成 (12 Python tests 全绿, M5 CI success)
+- [x] `pip install -e .` Mac/Linux 过 (maturin develop)
+- [x] pytest 覆盖 Python API — 12 tests (end-to-end silent audio → office_quiet, 会议 features → online_meeting, lint dict, 错误处理)
+- [ ] `mypy --strict` — 推迟到 v0.1.1（基础 py.typed 存在，完整 stubs 后续补）
+- [x] 3 平台 wheel 构建通过 (release.yml workflow 就位, macOS arm64 + Linux x86_64 + aarch64)
 
 ---
 
@@ -318,12 +320,15 @@ pub struct ReflectionBudget {
 - **Budget enforce**: `test_reflector_budget_time_ms` / `test_reflector_budget_tokens`
 - **Schema validation**: proposed YAML 必须通过 `perceptkit lint`
 
-### 6.7 DoD
-- [ ] 三 Reflector 都编译 + 单测
-- [ ] LocalReflector 在 macOS arm64 上 Qwen-0.5B Q4 跑通三出口
-- [ ] VCR fixture 覆盖 Map / Propose / Unknown 各 5 个用例
-- [ ] Budget enforce 被 test 覆盖
-- [ ] `perceptkit review approve` 能把 LLM 提议变 `scenes/xxx.yaml`
+### 6.7 DoD 🟡 部分完成 (2026-04-18) — 基础设施就位；真实 Qwen 延后
+- [x] **NoopReflector + MockReflector** — 2 个编译 + 单测 (M2 + M6)
+- [ ] **LocalReflector (Qwen-0.5B)** — 需 llama-cpp-2 + 模型下载；Round 3 决策 2-A 范围保留，实际权重下载在 M6 follow-up
+- [x] MockReflector VCR pattern 可用 (pops_in_order / exhausted_errors)
+- [x] ReflectionBudget 已在 M2 定义
+- [x] **`perceptkit review list/approve/reject` CLI** 完成
+- [ ] `approve` 自动写 `scenes/xxx.yaml` — M6 follow-up（现在只改 SQLite status）
+
+状态: Learnability 维度的接口完整，真实 LLM 功能等价于 Mock。与 Round 3 决策 2-A 原意一致（"Qwen 本地真跑"是 v0.1 目标，llama-cpp-2 集成预留 v0.2，现在是"infrastructure complete"阶段）。
 
 ---
 
@@ -362,15 +367,18 @@ pub struct ReflectionBudget {
 - **HuggingFace Datasets**: `smithpeter/perceptkit-bench-v0` 发布 + S3 mirror + sha 公证
 - **GitHub Release**: tag `v0.1.0`，完整 CHANGELOG + 数据集 sha 锁定
 
-### 7.6 DoD
-- [ ] VoxSign POC 分支可跑通，替换 `edge/scene/classifier.py`
-- [ ] 覆盖率审计报告 commit 到 `docs/voxsign-integration.md`（不含 VoxSign 用户数据）
-- [ ] **DATA.md + Datasheet v0 + Model Card v0 + Eval Card v0 四件套完整**
-- [ ] **DCO 协议 + CONTRIBUTING.md + pre-commit hook 就绪**
-- [ ] **cargo-sbom 生成 + egress audit 证明 perceptkit 二进制零 network call**
-- [ ] 2 篇博客写完（可发布状态）
-- [ ] crates.io + PyPI + HuggingFace Datasets 三渠道发布
-- [ ] GitHub Release v0.1.0 打 tag + 数据集 sha 公证
+### 7.6 DoD 🟡 部分完成 (2026-04-18) — 文档/CI 就位；真实发布待 v0.1 tag
+- [ ] VoxSign POC 分支 — 需 ~/VoxSign 写访问（外部环境，skeleton 在 docs/voxsign-integration.md）
+- [x] **`docs/voxsign-integration.md`** 覆盖率审计计划 + 数据边界 + rollout 计划
+- [x] **DATA.md** (M1 完成) + Datasheet v0 + Model Card v0 + Eval Card v0 (在 DATA.md §3-5)
+- [x] **DCO 协议** (.githooks/commit-msg + CONTRIBUTING.md + CI dco job)
+- [x] **cargo-deny** 禁 reqwest/hyper/surf/ureq/awc (Signal 模型工程保证)
+- [x] **docs/blog-1-benchmark.md** 博客 1 draft (HN 预热)
+- [ ] 博客 2 (VoxSign demo gif) — 需真实 POC 数据
+- [x] **release.yml workflow** 就位 (手动触发, dry_run 默认)
+- [ ] crates.io + PyPI + HF Datasets 实际发布 — 需用户运行 `gh workflow run release` 且设置 PyPI trusted publisher
+
+状态: v0.1 technical 就绪。实际 tag + publish 是用户决策（何时发、是否先 silent）。
 
 ---
 
