@@ -49,12 +49,14 @@
 - 日志: `tracing`
 - Python ABI: `abi3-py311`（兼容 3.11+）
 
-### 1.3 DoD
-- [ ] `cargo build --workspace` 绿
-- [ ] CI matrix: macOS arm64 + Linux x86_64 过
-- [ ] `cargo deny check` 在 core 阻止网络 crate
-- [ ] `uv run maturin develop` 可 import 空 Python 包
-- [ ] README 含一句话 pitch + quickstart 骨架
+### 1.3 DoD ✅ 2026-04-18 完成（CI run 24603823xxx 全绿）
+- [x] `cargo build --workspace` 绿
+- [x] CI matrix: macOS arm64 + Linux x86_64 过
+- [x] `cargo deny check` 在 core 阻止网络 crate（Signal 模型工程保证）
+- [x] `maturin develop` 可 import 空 Python 包（4 matrix: macOS/Linux × py311/py312）
+- [x] README 含一句话 pitch + quickstart 骨架
+- [x] DCO hook (`.githooks/commit-msg`) + GitHub Actions DCO job
+- [x] 首次 commit DCO 签名（`Signed-off-by: Yongming Zou`）
 
 ---
 
