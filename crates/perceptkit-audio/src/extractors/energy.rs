@@ -4,7 +4,14 @@ use perceptkit_core::{FeatureDescriptor, FeatureKey, FeatureKind, FeatureValue, 
 
 use crate::extractor::FeatureExtractor;
 
-/// Produces: `audio.rms` (0-1), `audio.rms_db` (dBFS), `audio.peak` (0-1).
+/// Produces 4 features:
+/// - `audio.rms` (0-1)
+/// - `audio.rms_db` (absolute dBFS)
+/// - `audio.peak` (0-1)
+/// - `audio.rms_db_pn` (peak-normalized RMS in dB relative to peak,
+///   robust across datasets with differing normalization levels;
+///   e.g. ESC-50 is peak-normalized to ~0 dBFS and produces negative
+///   rms_db_pn values even for "quiet" recordings)
 #[derive(Debug, Default, Clone)]
 pub struct EnergyExtractor;
 
@@ -78,12 +85,28 @@ impl FeatureExtractor for EnergyExtractor {
                 source: concat!("perceptkit-audio@", env!("CARGO_PKG_VERSION")).into(),
                 version: 1,
             },
+            FeatureDescriptor {
+                key: FeatureKey::new("audio.rms_db_pn").unwrap(),
+                kind: FeatureKind::F64 {
+                    min: Some(-120.0),
+                    max: Some(0.0),
+                },
+                unit: Some("dB_peak_normalized".into()),
+                window: TimeWindow::Instant,
+                source: concat!("perceptkit-audio@", env!("CARGO_PKG_VERSION")).into(),
+                version: 1,
+            },
         ]
     }
 
     fn extract(&self, pcm: &[f32], _sample_rate: u32) -> Vec<(FeatureKey, FeatureValue)> {
         let rms_v = rms(pcm);
         let peak_v = peak(pcm);
+        let peak_normalized_rms = if peak_v > 1e-12 {
+            to_dbfs(rms_v / peak_v)
+        } else {
+            -120.0
+        };
         vec![
             (
                 FeatureKey::new("audio.rms").unwrap(),
@@ -96,6 +119,10 @@ impl FeatureExtractor for EnergyExtractor {
             (
                 FeatureKey::new("audio.peak").unwrap(),
                 FeatureValue::F64(peak_v),
+            ),
+            (
+                FeatureKey::new("audio.rms_db_pn").unwrap(),
+                FeatureValue::F64(peak_normalized_rms),
             ),
         ]
     }
@@ -136,14 +163,48 @@ mod tests {
     }
 
     #[test]
-    fn extractor_emits_three_features() {
+    fn extractor_emits_four_features() {
         let pcm = vec![0.5_f32; 100];
         let out = EnergyExtractor.extract(&pcm, 16000);
-        assert_eq!(out.len(), 3);
+        assert_eq!(out.len(), 4);
         let keys: Vec<_> = out.iter().map(|(k, _)| k.as_str()).collect();
         assert!(keys.contains(&"audio.rms"));
         assert!(keys.contains(&"audio.rms_db"));
         assert!(keys.contains(&"audio.peak"));
+        assert!(keys.contains(&"audio.rms_db_pn"));
+    }
+
+    #[test]
+    fn rms_db_pn_is_zero_when_constant_amplitude() {
+        // Constant signal: rms = peak → ratio = 1 → 0 dB peak-normalized.
+        let pcm = vec![0.5_f32; 1000];
+        let out = EnergyExtractor.extract(&pcm, 16000);
+        let pn = out
+            .iter()
+            .find(|(k, _)| k.as_str() == "audio.rms_db_pn")
+            .and_then(|(_, v)| v.as_f64())
+            .unwrap();
+        assert!(pn.abs() < 1e-3, "expected 0 dB, got {pn}");
+    }
+
+    #[test]
+    fn rms_db_pn_is_lower_than_rms_db_for_dynamic_signal() {
+        // Transient: peak=1.0, most samples=0 → rms << peak → rms_db_pn very negative.
+        let mut pcm = vec![0.0_f32; 1000];
+        pcm[500] = 1.0;
+        let out = EnergyExtractor.extract(&pcm, 16000);
+        let db = out
+            .iter()
+            .find(|(k, _)| k.as_str() == "audio.rms_db")
+            .and_then(|(_, v)| v.as_f64())
+            .unwrap();
+        let pn = out
+            .iter()
+            .find(|(k, _)| k.as_str() == "audio.rms_db_pn")
+            .and_then(|(_, v)| v.as_f64())
+            .unwrap();
+        // Peak = 1.0 → rms_db_pn == rms_db (since rms/peak == rms itself).
+        assert!((db - pn).abs() < 1e-3);
     }
 
     #[test]

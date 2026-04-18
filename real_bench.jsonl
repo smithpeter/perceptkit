@@ -81,7 +81,7 @@
 {"filename": "2-79769-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": "sustained_speech", "confidence": 1.0, "correct": false}
 {"filename": "2-79775-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": "outdoor_noisy", "confidence": 1.0, "correct": false}
 {"filename": "3-107123-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
-{"filename": "3-110536-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": "near_silence", "confidence": 1.0, "correct": false}
+{"filename": "3-110536-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "3-118487-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "3-119459-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "3-126113-A-26.wav", "label": "multi_speaker_chat", "predicted_scene_id": "sustained_speech", "confidence": 1.0, "correct": false}
@@ -123,7 +123,7 @@
 {"filename": "1-74517-A-37.wav", "label": "near_silence", "predicted_scene_id": "outdoor_noisy", "confidence": 1.0, "correct": false}
 {"filename": "1-96890-A-37.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "2-102435-A-37.wav", "label": "near_silence", "predicted_scene_id": "outdoor_noisy", "confidence": 1.0, "correct": false}
-{"filename": "2-104475-A-37.wav", "label": "near_silence", "predicted_scene_id": "near_silence", "confidence": 1.0, "correct": true}
+{"filename": "2-104475-A-37.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "2-104476-A-37.wav", "label": "near_silence", "predicted_scene_id": "outdoor_noisy", "confidence": 1.0, "correct": false}
 {"filename": "2-117116-A-37.wav", "label": "near_silence", "predicted_scene_id": "sustained_speech", "confidence": 1.0, "correct": false}
 {"filename": "2-119748-A-38.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
@@ -142,9 +142,9 @@
 {"filename": "2-82455-A-23.wav", "label": "near_silence", "predicted_scene_id": "sustained_speech", "confidence": 1.0, "correct": false}
 {"filename": "2-84965-A-23.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "2-88724-A-38.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
-{"filename": "2-89516-A-37.wav", "label": "near_silence", "predicted_scene_id": "near_silence", "confidence": 1.0, "correct": true}
+{"filename": "2-89516-A-37.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "2-95567-A-23.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
-{"filename": "2-96063-A-37.wav", "label": "near_silence", "predicted_scene_id": "near_silence", "confidence": 1.0, "correct": true}
+{"filename": "2-96063-A-37.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "2-98392-A-23.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
 {"filename": "3-108160-A-23.wav", "label": "near_silence", "predicted_scene_id": "sustained_speech", "confidence": 1.0, "correct": false}
 {"filename": "3-112557-A-23.wav", "label": "near_silence", "predicted_scene_id": null, "confidence": 0.0, "correct": false}
