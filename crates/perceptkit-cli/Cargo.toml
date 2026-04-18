@@ -14,7 +14,7 @@ name = "perceptkit"
 path = "src/main.rs"
 
 [dependencies]
-perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-alpha.0" }
+perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-pre-alpha.1" }
 clap = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
