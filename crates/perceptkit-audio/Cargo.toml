@@ -11,7 +11,7 @@ authors.workspace = true
 readme = "../../README.md"
 
 [dependencies]
-perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-pre-alpha.1" }
+perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-dev.1" }
 ndarray = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/smithpeter/perceptkit/actions/workflows/ci.yml/badge.svg)](https://github.com/smithpeter/perceptkit/actions)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
-[![Status: v0.1.0-pre-alpha](https://img.shields.io/badge/status-v0.1.0--pre--alpha-red.svg)](CHANGELOG.md)
+[![Status: v0.1.0-dev](https://img.shields.io/badge/status-v0.1.0--dev-red.svg)](CHANGELOG.md)
 
 > ⚠️ **Honest status disclosure** (updated 2026-04-19 post Qwen integration):
 >

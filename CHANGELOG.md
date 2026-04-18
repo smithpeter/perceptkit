@@ -4,10 +4,13 @@ All notable changes to perceptkit will be documented in this file.
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
-## [0.1.0-pre-alpha.1] — 2026-04-19 (downgrade after final audit)
+## [0.1.0-dev.1] — 2026-04-19 (downgrade after final audit)
 
 ### Changed
-- **Version downgrade**: `0.1.0-alpha.0` → `0.1.0-pre-alpha.1`
+- **Version downgrade**: `0.1.0-alpha.0` → `0.1.0-dev.1` (was briefly
+  `0.1.0-pre-alpha.1` for 1 commit; renamed because maturin's SemVer→PEP 440
+  conversion doesn't accept `pre-alpha` as a prerelease identifier. PEP 440
+  treats `.devN` as pre-pre-release, which maps to Cargo `-dev.N`.)
 
 Post-delivery final red-team audit (2026-04-19) measured the implementation
 against the Round 3 GO baseline (weighted 7.25/10). Re-evaluation found:
