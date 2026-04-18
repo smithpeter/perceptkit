@@ -1,0 +1,105 @@
+name: Release
+
+# Manually triggered release — bumps tag, builds wheels, publishes to PyPI +
+# crates.io. For security, both need explicit secrets: CARGO_REGISTRY_TOKEN
+# and PYPI_API_TOKEN.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — build artifacts but skip publishing"
+        type: boolean
+        default: true
+      publish_pypi:
+        description: "Publish to PyPI"
+        type: boolean
+        default: false
+      publish_crates:
+        description: "Publish to crates.io"
+        type: boolean
+        default: false
+
+jobs:
+  build-wheels:
+    name: Build wheels (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: macos-arm64
+          - os: ubuntu-latest
+            target: linux-x86_64
+          - os: ubuntu-latest
+            target: linux-aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install maturin
+        run: pip install maturin
+      - name: Build wheel
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          maturin build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.target }}
+          path: target/wheels/*.whl
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build-wheels
+    if: inputs.publish_pypi && !inputs.dry_run
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # for trusted publisher
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: wheels/
+          pattern: wheel-*
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: wheels/
+
+  publish-crates:
+    name: Publish to crates.io (core + audio)
+    if: inputs.publish_crates && !inputs.dry_run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Publish perceptkit-core
+        run: cargo publish -p perceptkit-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Wait for crates.io index propagation
+        run: sleep 30
+      - name: Publish perceptkit-audio
+        run: cargo publish -p perceptkit-audio --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish perceptkit-cli
+        run: cargo publish -p perceptkit-cli --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  summary:
+    name: Release summary
+    needs: [build-wheels]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarize
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- dry_run: ${{ inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+          echo "- publish_pypi: ${{ inputs.publish_pypi }}" >> $GITHUB_STEP_SUMMARY
+          echo "- publish_crates: ${{ inputs.publish_crates }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "For PyPI, configure https://pypi.org/manage/account/publishing/ with this repo." >> $GITHUB_STEP_SUMMARY
+          echo "For crates.io, add CARGO_REGISTRY_TOKEN secret." >> $GITHUB_STEP_SUMMARY
