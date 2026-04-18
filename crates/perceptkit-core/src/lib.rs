@@ -26,7 +26,9 @@ pub mod signal;
 
 pub use engine::{LintReport, SceneEngine};
 pub use error::{Error, Result};
-pub use feature::{FeatureBundle, FeatureDescriptor, FeatureKey, FeatureKind, FeatureValue, TimeWindow};
+pub use feature::{
+    FeatureBundle, FeatureDescriptor, FeatureKey, FeatureKind, FeatureValue, TimeWindow,
+};
 pub use gate::{ConfidenceGate, GateVerdict, ThresholdGate};
 pub use matcher::{Arbiter, EvalCtx, PriorityArbiter, RuleMatcher, SceneMatch, SimpleRuleMatcher};
 pub use queue::{PendingRow, PendingSceneQueue, PendingStatus};

@@ -69,9 +69,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 impl From<std::io::Error> for Error {
     fn from(source: std::io::Error) -> Self {
-        Self::Io {
-            path: None,
-            source,
-        }
+        Self::Io { path: None, source }
     }
 }

@@ -134,18 +134,29 @@ impl PendingSceneQueue {
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
         rows.into_iter()
-            .map(|(id, created_at, case_json, yaml, status, reviewer, reviewed_at, reject_reason)| {
-                Ok(PendingRow {
+            .map(
+                |(
                     id,
                     created_at,
                     case_json,
                     yaml,
-                    status: PendingStatus::from_str(&status)?,
+                    status,
                     reviewer,
                     reviewed_at,
                     reject_reason,
-                })
-            })
+                )| {
+                    Ok(PendingRow {
+                        id,
+                        created_at,
+                        case_json,
+                        yaml,
+                        status: PendingStatus::from_str(&status)?,
+                        reviewer,
+                        reviewed_at,
+                        reject_reason,
+                    })
+                },
+            )
             .collect()
     }
 
@@ -177,9 +188,7 @@ impl PendingSceneQueue {
             params![status.as_str(), reviewer, now, reject_reason, id],
         )?;
         if updated == 0 {
-            return Err(Error::Config(format!(
-                "no pending proposal with id '{id}'"
-            )));
+            return Err(Error::Config(format!("no pending proposal with id '{id}'")));
         }
         Ok(())
     }

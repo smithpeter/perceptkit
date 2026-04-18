@@ -54,8 +54,8 @@ fn run(cli: Cli) -> Result<ExitCode> {
 }
 
 fn lint_cmd(path: &std::path::Path) -> Result<ExitCode> {
-    let report = SceneEngine::lint(path)
-        .with_context(|| format!("linting scenes in {}", path.display()))?;
+    let report =
+        SceneEngine::lint(path).with_context(|| format!("linting scenes in {}", path.display()))?;
 
     println!("Scenes loaded: {}", report.scenes_ok);
 
@@ -77,10 +77,7 @@ fn lint_cmd(path: &std::path::Path) -> Result<ExitCode> {
         println!("\n✓ lint passed");
         Ok(ExitCode::SUCCESS)
     } else {
-        println!(
-            "\n✗ lint failed: {} conflict(s)",
-            report.conflicts.len()
-        );
+        println!("\n✗ lint failed: {} conflict(s)", report.conflicts.len());
         Ok(ExitCode::from(1))
     }
 }

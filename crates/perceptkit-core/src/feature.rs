@@ -272,10 +272,7 @@ mod tests {
     fn value_type_introspection() {
         assert_eq!(FeatureValue::F64(1.0).type_name(), "f64");
         assert_eq!(FeatureValue::Bool(true).type_name(), "bool");
-        assert_eq!(
-            FeatureValue::Category("x".into()).type_name(),
-            "category"
-        );
+        assert_eq!(FeatureValue::Category("x".into()).type_name(), "category");
         assert_eq!(FeatureValue::Vector(vec![]).type_name(), "vector");
     }
 }
