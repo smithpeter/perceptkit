@@ -448,7 +448,20 @@ D60 未过 M6 Qwen 集成
 
 ---
 
-## 11. 非目标（v0.1 明确不做，见 STRATEGY.md §6 + §11）
+## 11. v0.2 Roadmap（从 4.5% 真实数字推导）
+
+见 `docs/v0.2-design-inputs.md`，核心 P0-P4：
+
+- **P0** 音频-only 场景包 (ambient_music / near_silence / sustained_speech)
+- **P1** Silero VAD ONNX 替换能量+ZCR VAD
+- **P2** dBFS normalization + `with_loudness_target` API
+- **P3** `eval --inject-context` 合成上下文模式
+- **P4** 频谱特征 (flatness / centroid / pitch) via `ComplexSpectralExtractor`
+- **P5** Bench 扩展到 350+ 片段，macro-F1 ≥ 0.60 → 0.72
+
+目标: v0.2 ship real macro-F1 ≥ 0.72 on 350+ clips（战略 Accuracy 目标原始值 0.85 仍留 v0.3+）。
+
+## 12. 非目标（v0.1 明确不做，见 STRATEGY.md §6 + §11）
 
 - ASR / LLM 推理 in core / 音频采集 / streaming API / Temporal DSL / Stateful DSL / Per-user override / Vision / Text / 商业化 / Evolution Loop 自动 commit
 - **Flywheel Telemetry** (永不做，见 STRATEGY §11.3 "Signal 模型"承诺)
@@ -457,7 +470,7 @@ D60 未过 M6 Qwen 集成
 
 ---
 
-## 12. 完成定义 (DoD, v0.1.0)
+## 13. 完成定义 (DoD, v0.1.0)
 
 全部勾选后才能 tag `v0.1.0`：
 
@@ -476,7 +489,7 @@ D60 未过 M6 Qwen 集成
 
 ---
 
-## 13. 与 STRATEGY.md 的关系
+## 14. 与 STRATEGY.md 的关系
 
 - **STRATEGY.md** 定战略：使命 / 五维权重 / Moat / 非目标 / Roadmap
 - **plan.md**（本文件）定执行：milestone / DoD / 预算 / 砍刀
