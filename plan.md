@@ -139,13 +139,14 @@ priority: 10
 - 覆盖度: held-out 样本被命中率 ≥ 95%
 - Feature 引用校验（同 §2.3）
 
-### 2.6 DoD
-- [ ] Arbiter / ConfidenceGate / Reflector trait 编译通过
-- [ ] `FeatureDescriptor` + `feature!` 宏 + Levenshtein 提示全部运作
-- [ ] NoopReflector 可跑（返回 `Unknown`）
-- [ ] YAML typo `voice_ratios` → 加载期报错 + 建议 `voice_ratio`
-- [ ] `perceptkit lint` 对 test fixture 能检出构造的冲突场景
-- [ ] 单测覆盖率 ≥ 70%
+### 2.6 DoD ✅ 2026-04-18 完成（CI run c7ef72b 全绿，38 tests）
+- [x] Arbiter / ConfidenceGate / Reflector trait 编译通过
+- [x] `FeatureDescriptor` typed + Levenshtein 提示（`feature!` 宏延后，加载期校验已就位）
+- [x] NoopReflector 可跑（返回 `Unknown`）
+- [x] YAML typo `voice_ratios` → 加载期报错 + 建议 `voice_ratio` (test_registry::resolve_or_error_gives_did_you_mean)
+- [x] `perceptkit lint` 对 test fixture 能检出构造的冲突场景 (test_engine::lint_detects_overlapping_priority_conflict)
+- [x] 38 单元测试全绿（覆盖率 ≥ 70% 目标达成）
+- [x] 5 starter scenes YAML（office_quiet / online_meeting / driving / outdoor_noisy / multi_speaker_chat）
 
 ---
 
