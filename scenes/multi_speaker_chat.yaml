@@ -1,0 +1,11 @@
+id: multi_speaker_chat
+version: 1
+describe:
+  template: "多人对话"
+match:
+  all:
+    - { feature: audio.voice_ratio, op: gt, value: 0.5 }
+    - { feature: audio.speaker_count, op: gte, value: 2 }
+  none:
+    - { feature: context.app, op: in, value: [zoom.us, Zoom, Teams, Feishu] }
+priority: 7

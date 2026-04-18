@@ -1,0 +1,20 @@
+[package]
+name = "perceptkit-cli"
+description = "perceptkit command-line tool (lint, review, reflect)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "perceptkit"
+path = "src/main.rs"
+
+[dependencies]
+perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-alpha.0" }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }

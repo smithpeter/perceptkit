@@ -1,0 +1,9 @@
+id: office_quiet
+version: 1
+describe:
+  template: "安静的办公环境"
+match:
+  all:
+    - { feature: audio.voice_ratio, op: lt, value: 0.2 }
+    - { feature: audio.rms_db, op: lt, value: -40.0 }
+priority: 5

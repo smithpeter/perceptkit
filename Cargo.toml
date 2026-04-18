@@ -4,6 +4,7 @@ members = [
     "crates/perceptkit-core",
     "crates/perceptkit-audio",
     "crates/perceptkit-py",
+    "crates/perceptkit-cli",
 ]
 
 [workspace.package]
@@ -24,11 +25,16 @@ tracing = "0.1"
 async-trait = "0.1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 ndarray = "0.15"
+strsim = "0.11"
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+tokio = { version = "1", features = ["rt", "macros", "sync", "time"] }
 
 # dev
 proptest = "1"
 insta = "1"
 criterion = "0.5"
+tempfile = "3"
 
 [profile.release]
 lto = "thin"

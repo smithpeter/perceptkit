@@ -1,0 +1,11 @@
+id: online_meeting
+version: 1
+describe:
+  template: "在线会议中"
+match:
+  all:
+    - { feature: audio.voice_ratio, op: gt, value: 0.4 }
+  any:
+    - { feature: context.app, op: in, value: [zoom.us, Zoom, Teams, Feishu, FaceTime] }
+    - { feature: audio.speaker_count, op: gte, value: 2 }
+priority: 10
