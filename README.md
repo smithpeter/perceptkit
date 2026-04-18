@@ -10,40 +10,22 @@ perceptkit turns multimodal signals (audio, context, vision-later) into **audita
 
 It fills the "perception" gap in the LangChain / LlamaIndex / Haystack ecosystem.
 
-## Status
-
-🚧 **v0.1 in development** — M1 scaffold (2026-04-18). Not yet functional. See [plan.md](plan.md) for the 66-day roadmap.
-
 ## Why perceptkit
 
 - **Declarative**: Scenes defined in YAML, not hard-coded classifiers.
-- **Offline-first**: `perceptkit-core` has zero network dependencies (see [Signal Model](DATA.md#2-signal-model-承诺最硬核)).
-- **Self-learning**: LLM Reflector proposes new scenes → human reviews → YAML library grows.
+- **Offline-first**: `perceptkit-core` has zero network dependencies (enforced by `cargo deny`; see [Signal Model](DATA.md#2-signal-model-承诺最硬核)).
+- **Dual-Process**: Hot Path (rules, 1ms) + Cold Path (LLM reflector, optional).
+- **Self-learning**: LLM Reflector proposes new scenes → human reviews → YAML library grows. Never auto-commits.
 - **Fast**: Rust core, hot path p95 < 5ms, zero-copy numpy bindings.
+- **Typed**: FeatureDescriptor with Levenshtein `did_you_mean` for YAML typos.
+- **Flap-resistant**: 4-state FSM with hysteresis + dwell time (property-tested).
 
-## Architecture
+## Quickstart
 
-```
-Signal → Feature (typed) → Hot Path (rules) ──┐
-                                              ├─→ Confidence Gate
-                                              │
-              Cold Path (Reflector: Noop/Mock/Qwen-0.5B) ←┘
-                   ↓
-              Scene Decision (with rationale + evidence)
-                   ↓
-         Evolution Loop (PendingQueue → human review → scenes/*.yaml)
-```
-
-See [STRATEGY.md](STRATEGY.md) for the North Star, [plan.md](plan.md) for the roadmap.
-
-## Quickstart (M4+, not yet available)
+### Python
 
 ```bash
-# Rust
-cargo add perceptkit-core perceptkit-audio
-
-# Python
-pip install perceptkit
+pip install perceptkit           # not yet on PyPI — use `maturin develop` from source
 ```
 
 ```python
@@ -51,15 +33,122 @@ import numpy as np
 import perceptkit as pk
 
 engine = pk.SceneEngine.from_dir("./scenes")
-decision = engine.analyze_audio(pcm_np, sample_rate=16000)
-print(decision.scene_id, decision.confidence, decision.rationale)
+
+# From raw PCM (zero-copy)
+pcm = np.zeros(16000, dtype=np.float32)
+decision = engine.analyze_audio(pcm, 16000)
+print(decision.scene_id, decision.confidence, decision.description)
+
+# From pre-computed features
+decision = engine.analyze_bundle({
+    "audio.voice_ratio": 0.72,
+    "context.app": "Zoom",
+    "audio.speaker_count": 3.0,
+})
+# → SceneDecision(scene_id="online_meeting", confidence=1.0, source="rule")
 ```
+
+### Rust
+
+```bash
+cargo add perceptkit-core perceptkit-audio  # not yet on crates.io
+```
+
+```rust
+use perceptkit_core::{SceneEngine, FeatureBundle, FeatureKey, FeatureValue};
+use std::path::Path;
+
+let engine = SceneEngine::from_dir(Path::new("./scenes"))?;
+let mut bundle = FeatureBundle::new(0.0);
+bundle.insert(
+    FeatureKey::new("audio.voice_ratio")?,
+    FeatureValue::F64(0.72),
+);
+let decision = engine.evaluate(&bundle);
+```
+
+### CLI
+
+```bash
+perceptkit lint ./scenes                                 # detect scene conflicts
+perceptkit eval --scenes ./scenes --dataset bench.jsonl --gate  # accuracy gate
+perceptkit synthesize --out bench.jsonl                  # CI fixture generator
+perceptkit reflect --scenes ./scenes --input bundle.json --json  # single reflect
+perceptkit review list                                   # see pending LLM proposals
+perceptkit review approve <id> --reviewer alice          # commit to scenes/
+perceptkit review reject <id> --reviewer alice --reason "dup"
+```
+
+## Scene YAML
+
+```yaml
+id: online_meeting
+version: 1
+describe:
+  template: "在线会议中"
+match:
+  all:
+    - { feature: audio.voice_ratio, op: gt, value: 0.4 }
+    - { feature: context.app, op: in, value: [Zoom, Teams, Feishu] }
+priority: 10
+```
+
+Typo a feature key → loader gives you `did_you_mean`:
+```
+error: unknown feature 'audio.voice_ratios' in scene 'online_meeting',
+       did you mean 'audio.voice_ratio'?
+```
+
+## Architecture
+
+```
+Signal → FeatureDescriptor (typed, Levenshtein-checked) → Hot Path:
+   ├─ RuleMatcher (YAML DSL)                                  
+   ├─ PriorityArbiter                                  
+   ├─ ConfidenceGate                                   
+   └─ Flapping FSM (hysteresis + dwell + hot-switch)  ──> SceneDecision
+          │                                                  (with rationale + evidence)
+          │ escalation
+          ▼
+   Cold Path: Reflector (Noop / Mock / Local-Qwen)  
+          │ 3-way output
+          ▼
+   Map → scene_id, rationale
+   Propose → YAML draft → PendingSceneQueue → human review → scenes/*.yaml
+   Unknown → feature summary
+```
+
+Full details: [STRATEGY.md](STRATEGY.md) (North Star), [plan.md](plan.md) (66-day roadmap), [DATA.md](DATA.md) (data governance).
+
+## v0.1 Status (2026-04-18)
+
+**Ship-ready infrastructure**:
+- ✅ Cargo workspace (core / audio / py / cli)
+- ✅ PyO3 abi3-py311 bindings
+- ✅ Scene YAML DSL + typed features + Levenshtein
+- ✅ 4-state Flapping FSM (proptest)
+- ✅ Evaluation framework (`eval --gate`, macro-F1 / Top-1 / per-scene recall)
+- ✅ Evolution Loop (`review approve` writes YAML to scenes/)
+- ✅ 85 tests passing across Rust (macOS + Linux) and Python (3.11, 3.12)
+- ✅ Signal Model: `cargo deny` blocks `reqwest`/`hyper`/`surf`/`ureq`/`awc`
+- ✅ DCO contribution protocol (Signed-off-by enforced in CI)
+
+**Known limitations (v0.1 → v0.2 roadmap)**:
+- ⏸ Real 525-clip HuggingFace benchmark (needs $400 labeling budget)
+- ⏸ Qwen-0.5B LocalReflector (needs llama-cpp-2 + model weights)
+- ⏸ Temporal DSL ("past 30s"), Stateful DSL, Per-user overrides
+- ⏸ Vision / Text modalities
+
+## Governance
+
+All strategic decisions (STRATEGY.md §1-§5, §11) required red/blue adversarial review.
+See [STRATEGY.md §9](STRATEGY.md) for review history. Total: 4 rounds across 5 perspectives, converged to 7.25/10 weighted GO.
 
 ## 中文
 
 **perceptkit 是 AI Agent 的感知中间件**——把多模态信号（音频 / 视觉 / 上下文 / 文本）转成声明式、可审计、可离线、可自学习的场景决策。填补 LangChain / LlamaIndex 生态里缺失的"感知"那一格。
 
-当前处于 v0.1 开发阶段（M1 脚手架完成）。详见：
+当前处于 v0.1 alpha 阶段（M1-M3 完全，M4-M7 核心功能完成）。详见：
 - [STRATEGY.md](STRATEGY.md) — 项目北极星战略
 - [plan.md](plan.md) — 66 工作日实施路线图
 - [DATA.md](DATA.md) — 数据治理与 Signal 模型承诺
@@ -67,9 +156,9 @@ print(decision.scene_id, decision.confidence, decision.rationale)
 
 ## License
 
-双许可：[MIT](LICENSE-MIT) OR [Apache 2.0](LICENSE-APACHE)
+Dual: [MIT](LICENSE-MIT) OR [Apache 2.0](LICENSE-APACHE)
 
-数据集：CC-BY-NC 4.0 主库 + CC0 贡献 + CC0 quickstart 样本（见 [DATA.md](DATA.md)）。
+Dataset (planned): CC-BY-NC 4.0 main + CC0 contributions + CC0 quickstart samples ([DATA.md](DATA.md)).
 
 ## Contributing
 
@@ -82,4 +171,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). We use **DCO** (Signed-off-by), not CLA.
 
 ## Acknowledgements
 
-Inspired by Kahneman's dual-process theory, Mozilla Common Voice, Signal Protocol privacy model, HELM benchmark standards, and 1741 lines of hard-coded scene rules in VoxSign.
+Inspired by Kahneman's dual-process theory, Mozilla Common Voice, Signal Protocol privacy model, HELM benchmark standards, and 1741 lines of hard-coded scene rules in VoxSign that motivated this project.
