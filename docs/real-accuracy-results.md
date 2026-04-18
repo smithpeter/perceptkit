@@ -124,3 +124,55 @@ much better.
 
 v0.2 will ship with the 4 design-input items above + re-run this benchmark
 for comparison.
+
+---
+
+## Second run (2026-04-19, post-P0+P3 partial — commit 818be97)
+
+After adding **2 audio-only scenes** (`near_silence`, `sustained_speech`)
+and **per-clip context injection** in `labels.csv` (e.g.
+`context_motion=vehicle` for ESC-50 `engine` / `car_horn`):
+
+**Top-1 = 53/200 = 26.5%** — **~6× improvement** over the first run.
+
+Per-scene recall:
+
+| Scene | Recall | Δ vs run 1 | Notes |
+|---|---|---|---|
+| driving | **98.0%** (49/50) | +98pp | Context injection works end-to-end |
+| near_silence | 6.0% (3/50) | (new) | ESC-50 peak-normalized audio → RMS above -25dB threshold |
+| outdoor_noisy | 2.0% (1/50) | 0 | VAD false-fires on wind/rain → voice_ratio > 0.3 violates scene |
+| multi_speaker_chat | 0.0% (0/50) | 0 | MultiSpeakerExtractor is stub (always 1); speaker_count ≥ 2 never |
+
+Prediction-distribution diagnostic:
+
+```
+multi_speaker_chat → sustained_speech 30, UNKNOWN 18   (VAD fires on crowd)
+near_silence        → UNKNOWN 18, sustained_speech 13, outdoor_noisy 8
+outdoor_noisy       → sustained_speech 30, UNKNOWN 12, office_quiet 6
+```
+
+### Root causes (three, all v0.2 roadmap items)
+
+1. **VAD too simple** → false-fires on wind/rain/crowd. v0.2 P1 (Silero VAD
+   ONNX) will drop voice_ratio near zero on non-speech audio.
+2. **MultiSpeakerExtractor is stub** (always returns 1) → `multi_speaker_chat`
+   can never satisfy `speaker_count >= 2`. v0.2 integrates CAM++ / pyannote.
+3. **Absolute dBFS thresholds** don't travel across datasets. ESC-50 is
+   peak-normalized so "quiet" registers louder than in raw recording.
+   v0.2 P2 adds `with_loudness_target` / dynamic-range-aware features.
+
+### Updated projection
+
+| Measure | v0.1 synth | v0.1 ESC-50 no-context | v0.1 ESC-50 + context (this) | v0.2 target |
+|---|---|---|---|---|
+| Top-1 | 100% (tautology) | 4.5% | **26.5%** | ≥ 55% |
+| driving | 100% | 0% | 98% ✓ | maintain |
+| multi_speaker_chat | 100% | 0% | 0% | ≥ 50% (needs real speaker count) |
+| outdoor_noisy | 100% | 2% | 2% | ≥ 60% (needs Silero) |
+| near_silence | n/a | n/a | 6% | ≥ 80% (needs dBFS calibration) |
+
+**Interpretation**: 26.5% is legitimate partial credit. The multi-modal
+engine *works as designed* when context is present (driving 98%); what's
+weak is the audio provider internals, not the engine architecture. v0.2
+replaces the audio provider without touching the architecture.
