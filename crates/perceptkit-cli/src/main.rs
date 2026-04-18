@@ -2,6 +2,7 @@
 //! M6 adds: `review list/approve/reject`, `reflect`, `export`.
 
 mod eval;
+mod review;
 mod synth;
 
 use std::path::PathBuf;
@@ -54,6 +55,11 @@ enum Commands {
         #[arg(long, default_value_t = 42)]
         seed: u64,
     },
+    /// Manage pending LLM-proposed scenes (human-in-the-loop review).
+    Review {
+        #[command(subcommand)]
+        cmd: review::ReviewCmd,
+    },
     /// Show version info.
     Version,
 }
@@ -82,6 +88,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
             per_scene,
             seed,
         } => synth::synthesize_cmd(&out, per_scene, seed),
+        Commands::Review { cmd } => review::run(cmd),
         Commands::Version => {
             println!("perceptkit {}", env!("CARGO_PKG_VERSION"));
             println!("perceptkit-core {}", perceptkit_core::VERSION);

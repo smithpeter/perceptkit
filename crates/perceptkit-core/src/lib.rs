@@ -33,7 +33,9 @@ pub use feature::{
 pub use gate::{ConfidenceGate, GateVerdict, ThresholdGate};
 pub use matcher::{Arbiter, EvalCtx, PriorityArbiter, RuleMatcher, SceneMatch, SimpleRuleMatcher};
 pub use queue::{PendingRow, PendingSceneQueue, PendingStatus};
-pub use reflector::{NoopReflector, PendingCase, Reflection, ReflectionBudget, Reflector};
+pub use reflector::{
+    MockReflector, NoopReflector, PendingCase, Reflection, ReflectionBudget, Reflector,
+};
 pub use registry::FeatureRegistry;
 pub use scene::{DecisionSource, Evidence, EvidenceKind, Scene, SceneDecision};
 pub use signal::{Modality, Signal};

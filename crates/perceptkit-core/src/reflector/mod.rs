@@ -1,7 +1,9 @@
 //! Cold Path Reflector — LLM tool-calling agent for uncertain scenes.
 
+pub mod mock;
 pub mod noop;
 
+pub use mock::MockReflector;
 pub use noop::NoopReflector;
 
 use async_trait::async_trait;
