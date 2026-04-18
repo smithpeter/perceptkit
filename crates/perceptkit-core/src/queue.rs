@@ -24,6 +24,46 @@ CREATE TABLE IF NOT EXISTS pending_scenes (
 CREATE INDEX IF NOT EXISTS idx_pending_status ON pending_scenes(status);
 ";
 
+/// Raw SQLite row tuple — 8 fields of pending_scenes in order.
+#[allow(clippy::type_complexity)]
+type RawRow = (
+    String,         // id
+    f64,            // created_at
+    String,         // case_json
+    String,         // yaml
+    String,         // status
+    Option<String>, // reviewer
+    Option<f64>,    // reviewed_at
+    Option<String>, // reject_reason
+);
+
+fn row_to_raw(r: &rusqlite::Row<'_>) -> rusqlite::Result<RawRow> {
+    Ok((
+        r.get(0)?,
+        r.get(1)?,
+        r.get(2)?,
+        r.get(3)?,
+        r.get(4)?,
+        r.get(5)?,
+        r.get(6)?,
+        r.get(7)?,
+    ))
+}
+
+fn raw_to_row(raw: RawRow) -> Result<PendingRow> {
+    let (id, created_at, case_json, yaml, status, reviewer, reviewed_at, reject_reason) = raw;
+    Ok(PendingRow {
+        id,
+        created_at,
+        case_json,
+        yaml,
+        status: PendingStatus::from_str(&status)?,
+        reviewer,
+        reviewed_at,
+        reject_reason,
+    })
+}
+
 /// Status of a pending proposal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PendingStatus {
@@ -119,50 +159,29 @@ impl PendingSceneQueue {
         )?;
         let status_filter: Option<&str> = status.as_ref().map(|s| s.as_str());
         let rows = stmt
-            .query_map(params![status_filter], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, f64>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, Option<String>>(5)?,
-                    row.get::<_, Option<f64>>(6)?,
-                    row.get::<_, Option<String>>(7)?,
-                ))
-            })?
+            .query_map(params![status_filter], row_to_raw)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        rows.into_iter()
-            .map(
-                |(
-                    id,
-                    created_at,
-                    case_json,
-                    yaml,
-                    status,
-                    reviewer,
-                    reviewed_at,
-                    reject_reason,
-                )| {
-                    Ok(PendingRow {
-                        id,
-                        created_at,
-                        case_json,
-                        yaml,
-                        status: PendingStatus::from_str(&status)?,
-                        reviewer,
-                        reviewed_at,
-                        reject_reason,
-                    })
-                },
-            )
-            .collect()
+        rows.into_iter().map(raw_to_row).collect()
     }
 
     /// Approve a proposal (scene YAML must still be written to disk separately).
     pub fn approve(&self, id: &str, reviewer: &str) -> Result<()> {
         self.update_status(id, PendingStatus::Approved, reviewer, None)
+    }
+
+    /// Fetch a single row by id (None if not found).
+    pub fn get(&self, id: &str) -> Result<Option<PendingRow>> {
+        let row = self.conn.query_row(
+            "SELECT id, created_at, case_json, yaml, status, reviewer, reviewed_at, reject_reason
+             FROM pending_scenes WHERE id = ?1",
+            params![id],
+            row_to_raw,
+        );
+        match row {
+            Ok(raw) => Ok(Some(raw_to_row(raw)?)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(Error::Sqlite(e)),
+        }
     }
 
     /// Reject a proposal with a reason.

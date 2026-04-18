@@ -2,6 +2,7 @@
 //! M6 adds: `review list/approve/reject`, `reflect`, `export`.
 
 mod eval;
+mod reflect;
 mod review;
 mod synth;
 
@@ -60,6 +61,18 @@ enum Commands {
         #[command(subcommand)]
         cmd: review::ReviewCmd,
     },
+    /// Single-invocation Reflector trigger — load scenes, eval async, print decision.
+    Reflect {
+        /// Scenes directory.
+        #[arg(long, default_value = "./scenes")]
+        scenes: PathBuf,
+        /// Input JSON file ({"features": {...}, "timestamp": 0.0}).
+        #[arg(long)]
+        input: PathBuf,
+        /// Output as JSON (default: human-readable).
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Show version info.
     Version,
 }
@@ -89,6 +102,11 @@ fn run(cli: Cli) -> Result<ExitCode> {
             seed,
         } => synth::synthesize_cmd(&out, per_scene, seed),
         Commands::Review { cmd } => review::run(cmd),
+        Commands::Reflect {
+            scenes,
+            input,
+            json,
+        } => reflect::run(&scenes, &input, json),
         Commands::Version => {
             println!("perceptkit {}", env!("CARGO_PKG_VERSION"));
             println!("perceptkit-core {}", perceptkit_core::VERSION);

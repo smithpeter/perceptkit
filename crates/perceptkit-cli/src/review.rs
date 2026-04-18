@@ -10,6 +10,46 @@ use anyhow::{Context, Result};
 use clap::Subcommand;
 use perceptkit_core::{PendingSceneQueue, PendingStatus};
 
+/// Extract `id:` field from a minimal Scene YAML. Returns None if malformed.
+fn parse_scene_id(yaml: &str) -> Option<String> {
+    for line in yaml.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("id:") {
+            let v = rest.trim().trim_matches('"').trim_matches('\'');
+            if !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_id_from_valid_yaml() {
+        assert_eq!(
+            parse_scene_id("id: new_scene\nversion: 1\n"),
+            Some("new_scene".into())
+        );
+    }
+
+    #[test]
+    fn parse_id_with_quotes() {
+        assert_eq!(
+            parse_scene_id("id: \"quoted_scene\"\n"),
+            Some("quoted_scene".into())
+        );
+    }
+
+    #[test]
+    fn parse_id_returns_none_if_missing() {
+        assert_eq!(parse_scene_id("version: 1\ndescribe: x\n"), None);
+    }
+}
+
 #[derive(Subcommand, Debug)]
 pub enum ReviewCmd {
     /// List pending/approved/rejected proposals.
@@ -21,7 +61,7 @@ pub enum ReviewCmd {
         #[arg(long)]
         status: Option<String>,
     },
-    /// Approve a proposal.
+    /// Approve a proposal — writes YAML to scenes/ and updates status.
     Approve {
         /// Proposal id.
         id: String,
@@ -31,6 +71,9 @@ pub enum ReviewCmd {
         /// SQLite db path.
         #[arg(long, default_value = "./pending.db")]
         db: PathBuf,
+        /// Scenes directory — approved YAML is written here as `<scene_id>.yaml`.
+        #[arg(long, default_value = "./scenes")]
+        scenes_dir: PathBuf,
     },
     /// Reject a proposal with reason.
     Reject {
@@ -82,10 +125,35 @@ pub fn run(cmd: ReviewCmd) -> Result<ExitCode> {
             }
             Ok(ExitCode::SUCCESS)
         }
-        ReviewCmd::Approve { id, reviewer, db } => {
+        ReviewCmd::Approve {
+            id,
+            reviewer,
+            db,
+            scenes_dir,
+        } => {
             let queue = PendingSceneQueue::open(&db)?;
+            let row = queue
+                .get(&id)?
+                .with_context(|| format!("no proposal with id '{id}'"))?;
+
+            // Extract scene id from YAML (parse minimal `id: x` line).
+            let scene_id = parse_scene_id(&row.yaml)
+                .with_context(|| "could not find `id:` field in proposed YAML")?;
+
+            // Write YAML to scenes dir
+            std::fs::create_dir_all(&scenes_dir)
+                .with_context(|| format!("creating {}", scenes_dir.display()))?;
+            let dest = scenes_dir.join(format!("{scene_id}.yaml"));
+            if dest.exists() {
+                anyhow::bail!(
+                    "scenes/{scene_id}.yaml already exists — refuse to overwrite; reject or rename first"
+                );
+            }
+            std::fs::write(&dest, &row.yaml)
+                .with_context(|| format!("writing {}", dest.display()))?;
+
             queue.approve(&id, &reviewer)?;
-            println!("✓ approved {id}");
+            println!("✓ approved {id} → {}", dest.display());
             Ok(ExitCode::SUCCESS)
         }
         ReviewCmd::Reject {
