@@ -45,3 +45,9 @@ dataset/raw/
 models/
 *.gguf
 *.bin
+
+# Benchmark audio downloads (reproducible via scripts/fetch_esc50.sh)
+.cache/
+benchmark_audio/*.wav
+benchmark_audio/*.flac
+benchmark_audio/*.mp3
