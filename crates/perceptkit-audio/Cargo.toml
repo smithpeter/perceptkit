@@ -17,15 +17,28 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 rustfft = "6"
 
-# Optional: Silero VAD extractor via tract-onnx (pure Rust ONNX runtime).
-# Feature-gated to keep the default build light. When enabled, the caller
-# provides the Silero VAD ONNX model at runtime (not bundled in the crate).
+# Optional: Silero VAD extractor (experimental; no backend works yet).
+#
+# v0.2 P1 investigation summary (2026-04-19):
+# - `tract-onnx 0.22`: op-incompat with Silero v4 (gather panic) and v5
+#   (If-op squeeze). Scaffold compiles but model loading fails.
+# - `ort 2.0.0-rc.12` (load-dynamic + brew onnxruntime 1.24.4): ABI
+#   mismatch — ort expects API fields not present in shipped lib.
+# - `ort 2.0.0-rc.8`: 272 compile errors against any onnxruntime version.
+#
+# Paths forward (v0.3 research):
+# 1. Wait for ort 2.0 stable release (API should stabilize with onnxruntime 1.25)
+# 2. Try `rten` (pykeio/rten) — pure Rust ONNX runtime, Silero-compatible
+# 3. Hand-write minimal C-API binding for the 3 ops Silero needs
+#
+# For now, `silero-vad` feature keeps the tract-based scaffold so the
+# API surface can bake. Model loading errors at runtime.
 tract-onnx = { version = "0.22", optional = true }
 
 [features]
 default = []
-# Enable SileroVadExtractor. Requires the Silero VAD ONNX model
-# (~2.2 MB) at a path you configure at runtime.
+# Enable SileroVadExtractor scaffold (model loading currently fails —
+# see dep comment above for v0.3 research paths).
 silero-vad = ["dep:tract-onnx"]
 
 [dev-dependencies]
