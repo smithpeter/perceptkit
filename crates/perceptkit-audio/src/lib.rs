@@ -19,6 +19,8 @@ pub mod provider;
 pub use descriptors::audio_descriptors;
 pub use extractor::FeatureExtractor;
 pub use extractors::energy::EnergyExtractor;
+#[cfg(feature = "silero-vad")]
+pub use extractors::silero::SileroVadExtractor;
 pub use extractors::speaker::MultiSpeakerExtractor;
 pub use extractors::vad::VoiceActivityExtractor;
 pub use provider::AudioProvider;
