@@ -22,7 +22,3 @@ rusqlite = { workspace = true }
 proptest = { workspace = true }
 insta = { workspace = true }
 criterion = { workspace = true }
-
-[lints.clippy]
-pedantic = { level = "warn", priority = -1 }
-nursery = { level = "warn", priority = -1 }
