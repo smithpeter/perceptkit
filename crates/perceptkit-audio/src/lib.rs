@@ -1,26 +1,27 @@
-//! perceptkit-audio — Audio provider and feature extractors for perceptkit.
+//! perceptkit-audio — Audio provider and feature extractors.
 //!
 //! v0.1 scope (M3):
-//! - `EnergyExtractor`: RMS, peak, spectrum-subtraction SNR
-//! - `VoiceActivityExtractor`: energy + zero-crossing rate
-//! - `MultiSpeakerExtractor`: voice_ratio (trait stub in v0.1)
-//! - `SoundEventExtractor`: trait definition (YAMNet/BEATs integration in v0.2)
+//! - `EnergyExtractor`: RMS / peak / dBFS
+//! - `VoiceActivityExtractor`: energy + zero-crossing rate → voice_activity / voice_ratio
+//! - `MultiSpeakerExtractor`: **stub** (v0.2 integration)
+//! - `SoundEventExtractor`: **trait only** (v0.2 YAMNet/BEATs integration)
+//! - `AudioProvider`: composes extractors → `FeatureBundle`
 //!
-//! # v0.1 Scaffold
-//!
-//! This is the M1 scaffold. Real extractors land in M3.
+//! Signal Model: no network, no file I/O — caller provides decoded PCM.
 
 #![forbid(unsafe_code)]
 
-/// Version of `perceptkit-audio`.
+pub mod descriptors;
+pub mod extractor;
+pub mod extractors;
+pub mod provider;
+
+pub use descriptors::audio_descriptors;
+pub use extractor::FeatureExtractor;
+pub use extractors::energy::EnergyExtractor;
+pub use extractors::speaker::MultiSpeakerExtractor;
+pub use extractors::vad::VoiceActivityExtractor;
+pub use provider::AudioProvider;
+
+/// Version string.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[cfg(test)]
-mod tests {
-    use super::VERSION;
-
-    #[test]
-    fn version_is_not_empty() {
-        assert!(!VERSION.is_empty());
-    }
-}

@@ -23,6 +23,7 @@ pub mod reflector;
 pub mod registry;
 pub mod scene;
 pub mod signal;
+pub mod transition;
 
 pub use engine::{LintReport, SceneEngine};
 pub use error::{Error, Result};
@@ -36,6 +37,7 @@ pub use reflector::{NoopReflector, PendingCase, Reflection, ReflectionBudget, Re
 pub use registry::FeatureRegistry;
 pub use scene::{DecisionSource, Evidence, EvidenceKind, Scene, SceneDecision};
 pub use signal::{Modality, Signal};
+pub use transition::{FlappingFsm, FsmConfig, TransitionOutput};
 
 /// Version of `perceptkit-core`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
