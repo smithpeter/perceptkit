@@ -183,11 +183,11 @@ proptest! {
 ```
 + `test_hot_switch_overrides_dwell` / `test_exit_lo_never_backflap`
 
-### 3.4 DoD
-- [ ] Extractors 通过能量校准测试
-- [ ] FSM `flaps_per_minute ≤ 1` 在 60s 合成噪声断言
-- [ ] Hot switch 场景 < 500ms 切换
-- [ ] Dwell time 被 property test 验证（1000 seed 固定）
+### 3.4 DoD ✅ 2026-04-18 完成（CI run 51d1cc1 全绿，49 tests + 2 doctests）
+- [x] Extractors 通过能量校准测试 (silent=0 / constant=amp / -6dB@0.5 / ZCR=1.0 alternating)
+- [x] FSM `flaps_per_minute ≤ 1` 在 60s 合成噪声断言 (proptest::no_flap_under_mild_noise, 32 seeds)
+- [x] Hot switch 场景 < 500ms 切换 (test_hot_switch_bypasses_dwell)
+- [x] Dwell time 被 property test 验证 (proptest + 返回 current 取消 pending + 降置信 revert)
 
 ---
 
