@@ -15,6 +15,7 @@ perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-dev.1" }
 ndarray = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+rustfft = "6"
 
 # Optional: Silero VAD extractor via tract-onnx (pure Rust ONNX runtime).
 # Feature-gated to keep the default build light. When enabled, the caller

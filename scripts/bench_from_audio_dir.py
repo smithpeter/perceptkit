@@ -137,45 +137,13 @@ def main() -> int:
                 print(f"warn: audio too short: {path}; skipping", file=sys.stderr)
                 continue
 
-            # If the labels row provides context overrides, we need to
-            # analyze via bundle API (merging extracted audio features with
-            # the injected context). Fall back to analyze_audio when no
-            # context is provided.
-            if context_overrides:
-                # Extract audio features by running a dummy analyze_audio
-                # and re-constructing via analyze_bundle with contexts. A
-                # dedicated AudioProvider Python API would be cleaner — v0.2.
-                # Workaround: compute basic features manually.
-                import numpy as _np
-                _pcm64 = pcm.astype(_np.float64)
-                rms = float(_np.sqrt((_pcm64 * _pcm64).mean())) if _pcm64.size else 0.0
-                rms_db = 20.0 * _np.log10(max(rms, 1e-12))
-                zcr = float((_pcm64[:-1] * _pcm64[1:] < 0).sum()) / max(len(_pcm64) - 1, 1)
-                active = rms > 0.01 and zcr < 0.35
-                # Use 50ms sub-windows (same as VAD impl)
-                win = int(0.05 * args.sample_rate)
-                frames = _pcm64.reshape(-1, win) if len(_pcm64) % win == 0 \
-                    else _pcm64[: len(_pcm64) // win * win].reshape(-1, win)
-                if frames.size > 0:
-                    sub_rms = _np.sqrt((frames * frames).mean(axis=1))
-                    sub_zcr = (frames[:, :-1] * frames[:, 1:] < 0).sum(axis=1) / (win - 1)
-                    voice_ratio = float(((sub_rms > 0.01) & (sub_zcr < 0.35)).mean())
-                else:
-                    voice_ratio = 0.0
-
-                bundle = {
-                    "audio.rms": rms,
-                    "audio.rms_db": float(rms_db),
-                    "audio.peak": float(_np.max(_np.abs(_pcm64))) if _pcm64.size else 0.0,
-                    "audio.voice_activity": active,
-                    "audio.voice_ratio": voice_ratio,
-                    "audio.zero_crossing_rate": zcr,
-                    "audio.speaker_count": 1.0,
-                    **context_overrides,
-                }
-                decision = engine.analyze_bundle(bundle)
-            else:
-                decision = engine.analyze_audio(pcm, args.sample_rate)
+            # Always extract features via the real AudioProvider (Rust),
+            # then merge any context injection, then analyze_bundle. This
+            # flows all audio features (inc. SpectralExtractor v0.2 FFT
+            # additions) through the engine.
+            features = dict(engine.extract_audio_features(pcm, args.sample_rate))
+            features.update(context_overrides)
+            decision = engine.analyze_bundle(features)
 
             # Emit decision-shape JSON (so `eval --gate` can compute accuracy).
             # Note: `eval` currently recomputes via scene rules given features,

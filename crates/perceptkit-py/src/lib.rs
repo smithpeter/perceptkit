@@ -122,6 +122,35 @@ impl PyEngine {
         Ok(PyDecision::from(decision))
     }
 
+    /// Extract audio features from PCM → dict (bool/float/str values).
+    /// Useful for benches that want to merge extracted features with
+    /// synthetic context before calling `analyze_bundle`.
+    fn extract_audio_features<'py>(
+        &self,
+        py: Python<'py>,
+        pcm: PyReadonlyArray1<'_, f32>,
+        sample_rate: u32,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let slice = pcm
+            .as_slice()
+            .map_err(|e| PyValueError::new_err(format!("{e}")))?;
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0);
+        let bundle = self.audio_provider.process(slice, sample_rate, ts);
+        let d = PyDict::new_bound(py);
+        for (k, v) in bundle.iter() {
+            match v {
+                FeatureValue::F64(x) => d.set_item(k.as_str(), *x)?,
+                FeatureValue::Bool(x) => d.set_item(k.as_str(), *x)?,
+                FeatureValue::Category(s) => d.set_item(k.as_str(), s.as_str())?,
+                FeatureValue::Vector(v) => d.set_item(k.as_str(), v.clone())?,
+            }
+        }
+        Ok(d)
+    }
+
     /// Analyze a feature dict (keys like "audio.voice_ratio", values bool/f64/str).
     fn analyze_bundle(&self, features: &Bound<'_, PyDict>) -> PyResult<PyDecision> {
         let mut bundle = FeatureBundle::new(0.0);

@@ -6,4 +6,9 @@ match:
   all:
     - { feature: audio.voice_ratio, op: gt, value: 0.5 }
     - { feature: audio.voice_activity, op: eq, value: true }
+    # Human speech has formants → low spectral flatness (< 0.15 typical).
+    # Wind / rain / crowd noise is flatter. This secondary gate prevents
+    # our simple VAD's false-positives on natural sounds from misfiring
+    # this scene. DSP-grounded, not ESC-50-tuned.
+    - { feature: audio.spectral_flatness, op: lt, value: 0.15 }
 priority: 4

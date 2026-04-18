@@ -22,6 +22,7 @@ pub use extractors::energy::EnergyExtractor;
 #[cfg(feature = "silero-vad")]
 pub use extractors::silero::SileroVadExtractor;
 pub use extractors::speaker::MultiSpeakerExtractor;
+pub use extractors::spectral::SpectralExtractor;
 pub use extractors::vad::VoiceActivityExtractor;
 pub use provider::AudioProvider;
 

@@ -12,7 +12,8 @@ use perceptkit_core::FeatureBundle;
 
 use crate::extractor::FeatureExtractor;
 use crate::extractors::{
-    energy::EnergyExtractor, speaker::MultiSpeakerExtractor, vad::VoiceActivityExtractor,
+    energy::EnergyExtractor, speaker::MultiSpeakerExtractor, spectral::SpectralExtractor,
+    vad::VoiceActivityExtractor,
 };
 
 /// Orchestrates extractors → `FeatureBundle` per tick.
@@ -28,14 +29,15 @@ impl AudioProvider {
         }
     }
 
-    /// Construct with the default v0.1 extractor set:
-    /// Energy + VoiceActivity + MultiSpeaker (stub).
+    /// Construct with the default extractor set:
+    /// Energy + VoiceActivity + MultiSpeaker (stub) + Spectral.
     pub fn with_defaults() -> Self {
         Self {
             extractors: vec![
                 Box::new(EnergyExtractor),
                 Box::new(VoiceActivityExtractor::default()),
                 Box::new(MultiSpeakerExtractor),
+                Box::new(SpectralExtractor::default()),
             ],
         }
     }
@@ -94,8 +96,8 @@ mod tests {
         let pcm = vec![0.5_f32; 16000];
         let b = p.process(&pcm, 16000, 12345.6);
         assert_eq!(b.timestamp, 12345.6);
-        // Energy (4) + VAD (3) + Speaker (1) = 8
-        assert_eq!(b.len(), 8);
+        // Energy (4) + VAD (3) + Speaker (1) + Spectral (3) = 11
+        assert_eq!(b.len(), 11);
         assert!(b.get_str("audio.rms").is_some());
         assert!(b.get_str("audio.voice_activity").is_some());
         assert!(b.get_str("audio.speaker_count").is_some());
@@ -112,6 +114,7 @@ mod tests {
     fn sources_recorded() {
         let p = AudioProvider::with_defaults();
         let b = p.process(&[0.0; 100], 16000, 0.0);
-        assert_eq!(b.sources.len(), 3);
+        // 4 default extractors: Energy, VAD, Speaker, Spectral
+        assert_eq!(b.sources.len(), 4);
     }
 }

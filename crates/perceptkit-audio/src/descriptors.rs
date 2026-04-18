@@ -15,7 +15,8 @@ use perceptkit_core::FeatureDescriptor;
 
 use crate::extractor::FeatureExtractor;
 use crate::extractors::{
-    energy::EnergyExtractor, speaker::MultiSpeakerExtractor, vad::VoiceActivityExtractor,
+    energy::EnergyExtractor, speaker::MultiSpeakerExtractor, spectral::SpectralExtractor,
+    vad::VoiceActivityExtractor,
 };
 
 /// Default descriptors produced by the audio crate's extractors.
@@ -24,6 +25,7 @@ pub fn audio_descriptors() -> Vec<FeatureDescriptor> {
     out.extend(EnergyExtractor.descriptors());
     out.extend(VoiceActivityExtractor::default().descriptors());
     out.extend(MultiSpeakerExtractor.descriptors());
+    out.extend(SpectralExtractor::default().descriptors());
     out
 }
 
