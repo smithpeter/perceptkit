@@ -1,0 +1,11 @@
+id: music_playback
+version: 1
+describe:
+  template: "音乐播放"
+match:
+  all:
+    - { feature: audio.rms_db, op: gt, value: -30.0 }
+    - { feature: audio.voice_ratio, op: lt, value: 0.3 }
+  any:
+    - { feature: context.app, op: in, value: [Spotify, AppleMusic, NetEaseMusic, QQMusic, Tidal] }
+priority: 9

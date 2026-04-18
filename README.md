@@ -16,7 +16,7 @@ It fills the "perception" gap in the LangChain / LlamaIndex / Haystack ecosystem
 - **Offline-first**: `perceptkit-core` has zero network dependencies (enforced by `cargo deny`; see [Signal Model](DATA.md#2-signal-model-承诺最硬核)).
 - **Dual-Process**: Hot Path (rules, 1ms) + Cold Path (LLM reflector, optional).
 - **Self-learning**: LLM Reflector proposes new scenes → human reviews → YAML library grows. Never auto-commits.
-- **Fast**: Rust core, hot path p95 < 5ms, zero-copy numpy bindings.
+- **Fast**: Rust core, **hot path 1.77 µs** on macOS arm64 (8 features × 5 scenes, criterion-measured), zero-copy numpy bindings.
 - **Typed**: FeatureDescriptor with Levenshtein `did_you_mean` for YAML typos.
 - **Flap-resistant**: 4-state FSM with hysteresis + dwell time (property-tested).
 
@@ -70,12 +70,13 @@ let decision = engine.evaluate(&bundle);
 ### CLI
 
 ```bash
-perceptkit lint ./scenes                                 # detect scene conflicts
+perceptkit lint ./scenes                                        # detect scene conflicts
 perceptkit eval --scenes ./scenes --dataset bench.jsonl --gate  # accuracy gate
-perceptkit synthesize --out bench.jsonl                  # CI fixture generator
-perceptkit reflect --scenes ./scenes --input bundle.json --json  # single reflect
-perceptkit review list                                   # see pending LLM proposals
-perceptkit review approve <id> --reviewer alice          # commit to scenes/
+perceptkit synthesize --out bench.jsonl                         # CI fixture generator
+perceptkit reflect --scenes ./scenes --input bundle.json --json # single reflect
+perceptkit replay --trace traces.jsonl                          # audit LLM reflections
+perceptkit review list                                          # see pending LLM proposals
+perceptkit review approve <id> --reviewer alice                 # commit to scenes/
 perceptkit review reject <id> --reviewer alice --reason "dup"
 ```
 
@@ -129,7 +130,10 @@ Full details: [STRATEGY.md](STRATEGY.md) (North Star), [plan.md](plan.md) (66-da
 - ✅ 4-state Flapping FSM (proptest)
 - ✅ Evaluation framework (`eval --gate`, macro-F1 / Top-1 / per-scene recall)
 - ✅ Evolution Loop (`review approve` writes YAML to scenes/)
-- ✅ 85 tests passing across Rust (macOS + Linux) and Python (3.11, 3.12)
+- ✅ ReflectionTrace JSONL + `replay` command (audit trail)
+- ✅ Criterion benchmark: **1.77 µs hot path**, 41 ns FSM step
+- ✅ 87 tests across Rust (macOS + Linux) and Python (3.11, 3.12)
+- ✅ 7 starter scene YAMLs (office_quiet / online_meeting / driving / outdoor_noisy / multi_speaker_chat / music_playback / coding)
 - ✅ Signal Model: `cargo deny` blocks `reqwest`/`hyper`/`surf`/`ureq`/`awc`
 - ✅ DCO contribution protocol (Signed-off-by enforced in CI)
 

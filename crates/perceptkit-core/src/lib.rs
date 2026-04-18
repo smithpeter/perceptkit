@@ -23,6 +23,7 @@ pub mod reflector;
 pub mod registry;
 pub mod scene;
 pub mod signal;
+pub mod trace;
 pub mod transition;
 
 pub use engine::{LintReport, SceneEngine};
@@ -39,6 +40,7 @@ pub use reflector::{
 pub use registry::FeatureRegistry;
 pub use scene::{DecisionSource, Evidence, EvidenceKind, Scene, SceneDecision};
 pub use signal::{Modality, Signal};
+pub use trace::{read_traces, JsonlTracer, ReflectionTrace, Tracer};
 pub use transition::{FlappingFsm, FsmConfig, TransitionOutput};
 
 /// Version of `perceptkit-core`.

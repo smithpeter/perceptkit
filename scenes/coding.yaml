@@ -1,0 +1,10 @@
+id: coding
+version: 1
+describe:
+  template: "编程中"
+match:
+  all:
+    - { feature: audio.voice_ratio, op: lt, value: 0.2 }
+  any:
+    - { feature: context.app, op: in, value: [VSCode, Cursor, Xcode, IntelliJ, Vim, Emacs, Terminal, iTerm] }
+priority: 6

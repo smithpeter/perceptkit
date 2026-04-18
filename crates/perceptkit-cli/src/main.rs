@@ -3,6 +3,7 @@
 
 mod eval;
 mod reflect;
+mod replay;
 mod review;
 mod synth;
 
@@ -73,6 +74,15 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
+    /// Render a ReflectionTrace JSONL file for audit / debugging.
+    Replay {
+        /// Trace file path (JSONL).
+        #[arg(long)]
+        trace: PathBuf,
+        /// Output as JSON (default: human-readable summary).
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Show version info.
     Version,
 }
@@ -107,6 +117,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
             input,
             json,
         } => reflect::run(&scenes, &input, json),
+        Commands::Replay { trace, json } => replay::run(&trace, json),
         Commands::Version => {
             println!("perceptkit {}", env!("CARGO_PKG_VERSION"));
             println!("perceptkit-core {}", perceptkit_core::VERSION);
