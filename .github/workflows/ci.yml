@@ -11,7 +11,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-D warnings"
+# Note: -D warnings is passed only via `cargo clippy -- -D warnings`.
+# Setting it as RUSTFLAGS env clobbers target-specific rustflags in
+# .cargo/config.toml (e.g. macOS dynamic_lookup for PyO3 cdylib).
 
 jobs:
   rust:
