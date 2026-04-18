@@ -30,3 +30,7 @@ tokio = { version = "1", features = ["macros", "rt"] }
 [[bench]]
 name = "evaluate_bench"
 harness = false
+
+[[example]]
+name = "basic_rust"
+path = "../../examples/basic_rust.rs"
