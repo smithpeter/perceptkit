@@ -18,32 +18,30 @@ from collections import Counter
 from pathlib import Path
 
 
-# ESC-50 class name → perceptkit scene_id (None = skip)
+# ESC-50 class name → (perceptkit scene_id, context overrides)
+# Context injection simulates what a real multi-modal caller would provide
+# (app / motion / window signals). See v0.2-design-inputs.md P3.
 # Reference: https://github.com/karolpiczak/ESC-50#dataset
-ESC50_TO_PERCEPTKIT = {
-    # --- office_quiet: low voice + low energy ---
-    "clock_tick": "office_quiet",
-    "breathing": "office_quiet",
-    "clock_alarm": "office_quiet",  # sparse events in quiet room
-    # --- driving: engine noise / road ---
-    "engine": "driving",
-    "car_horn": "driving",
-    "siren": "driving",
-    "train": "driving",  # transportation proxy
-    # --- outdoor_noisy: nature / weather ---
-    "rain": "outdoor_noisy",
-    "sea_waves": "outdoor_noisy",
-    "wind": "outdoor_noisy",
-    "thunderstorm": "outdoor_noisy",
-    "pouring_water": "outdoor_noisy",
-    # --- multi_speaker_chat: multi-voice / crowd ---
-    "crowd": "multi_speaker_chat",
-    "laughing": "multi_speaker_chat",
-    "clapping": "multi_speaker_chat",
-    # --- online_meeting: single-speaker speech (we approximate) ---
-    # ESC-50 has no true meeting audio. We use isolated human voice as a
-    # proxy — acknowledging in real-accuracy.md this is imperfect.
-    # (Nothing in ESC-50 cleanly fits online_meeting; skip.)
+ESC50_TO_PERCEPTKIT: dict[str, tuple[str, dict[str, str]]] = {
+    # --- near_silence: v0.2 audio-only scene (no context needed) ---
+    "clock_tick": ("near_silence", {}),
+    "breathing": ("near_silence", {}),
+    "clock_alarm": ("near_silence", {}),
+    # --- driving: needs context.motion=vehicle (engine-only class) ---
+    "engine": ("driving", {"context_motion": "vehicle"}),
+    "car_horn": ("driving", {"context_motion": "vehicle"}),
+    "siren": ("driving", {"context_motion": "vehicle"}),
+    "train": ("driving", {"context_motion": "vehicle"}),
+    # --- outdoor_noisy: audio-only, no context needed ---
+    "rain": ("outdoor_noisy", {}),
+    "sea_waves": ("outdoor_noisy", {}),
+    "wind": ("outdoor_noisy", {}),
+    "thunderstorm": ("outdoor_noisy", {}),
+    "pouring_water": ("outdoor_noisy", {}),
+    # --- multi_speaker_chat: needs context.app = Messages (not meeting app) ---
+    "crowd": ("multi_speaker_chat", {"context_app": "Messages"}),
+    "laughing": ("multi_speaker_chat", {"context_app": "Messages"}),
+    "clapping": ("multi_speaker_chat", {"context_app": "Messages"}),
 }
 
 
@@ -59,21 +57,25 @@ def main() -> int:
 
     scene_counts: Counter[str] = Counter()
     rows = []
+    context_keys: set[str] = set()
     with args.meta.open() as f:
         reader = csv.DictReader(f)
         for row in reader:
             esc_class = row.get("category", "").strip()
-            scene = ESC50_TO_PERCEPTKIT.get(esc_class)
-            if not scene:
+            mapping = ESC50_TO_PERCEPTKIT.get(esc_class)
+            if not mapping:
                 continue
-            rows.append((row["filename"], scene, esc_class))
+            scene, ctx = mapping
+            context_keys.update(ctx.keys())
+            rows.append((row["filename"], scene, esc_class, ctx))
             scene_counts[scene] += 1
 
+    sorted_ctx_keys = sorted(context_keys)
     with args.out.open("w") as f:
         w = csv.writer(f)
-        w.writerow(["filename", "scene_id", "source_class"])
-        for fn, scene, src in rows:
-            w.writerow([fn, scene, src])
+        w.writerow(["filename", "scene_id", "source_class"] + sorted_ctx_keys)
+        for fn, scene, src, ctx in rows:
+            w.writerow([fn, scene, src] + [ctx.get(k, "") for k in sorted_ctx_keys])
 
     total = len(rows)
     print(f"Wrote {total} labels → {args.out}")

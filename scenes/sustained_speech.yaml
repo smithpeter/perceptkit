@@ -1,0 +1,9 @@
+id: sustained_speech
+version: 1
+describe:
+  template: "持续人声 (audio-only)"
+match:
+  all:
+    - { feature: audio.voice_ratio, op: gt, value: 0.5 }
+    - { feature: audio.voice_activity, op: eq, value: true }
+priority: 4

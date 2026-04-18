@@ -101,7 +101,7 @@ def main() -> int:
     engine = perceptkit.SceneEngine.from_dir(str(args.scenes))
     valid_scenes = set(engine.scene_ids())
 
-    # Read labels
+    # Read labels — optional context_* columns are injected into the bundle
     rows = []
     with args.labels.open() as f:
         reader = csv.DictReader(f)
@@ -112,7 +112,13 @@ def main() -> int:
                 continue
             if scene not in valid_scenes:
                 print(f"warn: unknown scene_id '{scene}' in labels; valid: {sorted(valid_scenes)}", file=sys.stderr)
-            rows.append((fn, scene))
+            context_overrides = {}
+            for key, value in row.items():
+                if key and key.startswith("context_") and value and value.strip():
+                    # column "context_app" → feature "context.app"
+                    feature_key = "context." + key[len("context_"):]
+                    context_overrides[feature_key] = value.strip()
+            rows.append((fn, scene, context_overrides))
 
     if not rows:
         print("error: no valid rows in labels", file=sys.stderr)
@@ -120,7 +126,7 @@ def main() -> int:
 
     out_records = []
     with args.out.open("w") as fout:
-        for filename, label in rows:
+        for filename, label, context_overrides in rows:
             path = args.audio_dir / filename
             if not path.exists():
                 print(f"warn: missing audio file: {path}; skipping", file=sys.stderr)
@@ -131,13 +137,45 @@ def main() -> int:
                 print(f"warn: audio too short: {path}; skipping", file=sys.stderr)
                 continue
 
-            # Run through perceptkit engine end-to-end (audio → features → decision).
-            # We EMIT the features dict, not the decision, so eval can re-classify.
-            # Here we just re-use engine.analyze_audio to get the decision, then
-            # reverse-lookup features via a peek — actually simpler: we emit the
-            # raw RMS/VAD/speaker_count via a dedicated path.
-            # For v0.1 minimal approach: record the decision outcome directly.
-            decision = engine.analyze_audio(pcm, args.sample_rate)
+            # If the labels row provides context overrides, we need to
+            # analyze via bundle API (merging extracted audio features with
+            # the injected context). Fall back to analyze_audio when no
+            # context is provided.
+            if context_overrides:
+                # Extract audio features by running a dummy analyze_audio
+                # and re-constructing via analyze_bundle with contexts. A
+                # dedicated AudioProvider Python API would be cleaner — v0.2.
+                # Workaround: compute basic features manually.
+                import numpy as _np
+                _pcm64 = pcm.astype(_np.float64)
+                rms = float(_np.sqrt((_pcm64 * _pcm64).mean())) if _pcm64.size else 0.0
+                rms_db = 20.0 * _np.log10(max(rms, 1e-12))
+                zcr = float((_pcm64[:-1] * _pcm64[1:] < 0).sum()) / max(len(_pcm64) - 1, 1)
+                active = rms > 0.01 and zcr < 0.35
+                # Use 50ms sub-windows (same as VAD impl)
+                win = int(0.05 * args.sample_rate)
+                frames = _pcm64.reshape(-1, win) if len(_pcm64) % win == 0 \
+                    else _pcm64[: len(_pcm64) // win * win].reshape(-1, win)
+                if frames.size > 0:
+                    sub_rms = _np.sqrt((frames * frames).mean(axis=1))
+                    sub_zcr = (frames[:, :-1] * frames[:, 1:] < 0).sum(axis=1) / (win - 1)
+                    voice_ratio = float(((sub_rms > 0.01) & (sub_zcr < 0.35)).mean())
+                else:
+                    voice_ratio = 0.0
+
+                bundle = {
+                    "audio.rms": rms,
+                    "audio.rms_db": float(rms_db),
+                    "audio.peak": float(_np.max(_np.abs(_pcm64))) if _pcm64.size else 0.0,
+                    "audio.voice_activity": active,
+                    "audio.voice_ratio": voice_ratio,
+                    "audio.zero_crossing_rate": zcr,
+                    "audio.speaker_count": 1.0,
+                    **context_overrides,
+                }
+                decision = engine.analyze_bundle(bundle)
+            else:
+                decision = engine.analyze_audio(pcm, args.sample_rate)
 
             # Emit decision-shape JSON (so `eval --gate` can compute accuracy).
             # Note: `eval` currently recomputes via scene rules given features,
