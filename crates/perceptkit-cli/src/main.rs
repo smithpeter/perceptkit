@@ -1,5 +1,8 @@
-//! perceptkit CLI — v0.1 commands: `lint`.
+//! perceptkit CLI — v0.1 commands: `lint`, `eval`, `synthesize`, `version`.
 //! M6 adds: `review list/approve/reject`, `reflect`, `export`.
+
+mod eval;
+mod synth;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -27,6 +30,30 @@ enum Commands {
         #[arg(default_value = "./scenes")]
         path: PathBuf,
     },
+    /// Evaluate engine on a labeled JSONL dataset (macro-F1 / Top-1 / per-scene).
+    Eval {
+        /// Scenes directory.
+        #[arg(long, default_value = "./scenes")]
+        scenes: PathBuf,
+        /// JSONL dataset path ({features, label} per line).
+        #[arg(long)]
+        dataset: PathBuf,
+        /// Exit non-zero if v0.1 gates (Top-1 ≥0.78, Macro-F1 ≥0.72) fail.
+        #[arg(long, default_value_t = false)]
+        gate: bool,
+    },
+    /// Synthesize a labeled JSONL dataset for CI smoke tests.
+    Synthesize {
+        /// Output JSONL path.
+        #[arg(long)]
+        out: PathBuf,
+        /// Rows per scene (total = 5 × per_scene).
+        #[arg(long, default_value_t = 50)]
+        per_scene: usize,
+        /// PRNG seed for deterministic output.
+        #[arg(long, default_value_t = 42)]
+        seed: u64,
+    },
     /// Show version info.
     Version,
 }
@@ -45,6 +72,16 @@ fn main() -> ExitCode {
 fn run(cli: Cli) -> Result<ExitCode> {
     match cli.command {
         Commands::Lint { path } => lint_cmd(&path),
+        Commands::Eval {
+            scenes,
+            dataset,
+            gate,
+        } => eval::eval_cmd(&scenes, &dataset, gate),
+        Commands::Synthesize {
+            out,
+            per_scene,
+            seed,
+        } => synth::synthesize_cmd(&out, per_scene, seed),
         Commands::Version => {
             println!("perceptkit {}", env!("CARGO_PKG_VERSION"));
             println!("perceptkit-core {}", perceptkit_core::VERSION);

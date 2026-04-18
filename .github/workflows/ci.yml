@@ -65,6 +65,22 @@ jobs:
       - name: Build core without default features
         run: cargo build -p perceptkit-core
 
+  eval-gate:
+    name: Evaluation Gate (synthetic fixture)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build CLI
+        run: cargo build --release -p perceptkit-cli
+      - name: Synthesize CI fixture
+        run: ./target/release/perceptkit synthesize --out /tmp/bench.jsonl --per-scene 30 --seed 42
+      - name: Lint scenes
+        run: ./target/release/perceptkit lint ./scenes
+      - name: Evaluate with v0.1 gate
+        run: ./target/release/perceptkit eval --scenes ./scenes --dataset /tmp/bench.jsonl --gate
+
   python:
     name: Python (${{ matrix.os }}, ${{ matrix.python-version }})
     strategy:
