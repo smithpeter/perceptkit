@@ -88,9 +88,48 @@ jobs:
       - name: Publish perceptkit-cli
         run: cargo publish -p perceptkit-cli --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
+  sbom:
+    name: Signal Model evidence (cargo-sbom + egress audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-sbom
+        run: cargo install --locked cargo-sbom
+      - name: Generate SBOM (CycloneDX 1.4, core only — Signal Model scope)
+        run: |
+          mkdir -p release-artifacts
+          cargo sbom \
+            --cargo-package perceptkit-core \
+            --output-format cyclone_dx_json_1_4 \
+            > release-artifacts/perceptkit-core-sbom.cdx.json
+          # Sanity assertion: banned network crates must NOT appear in core SBOM
+          ! grep -qE '"name": *"(reqwest|hyper|hyper-util|surf|ureq|awc)"' \
+            release-artifacts/perceptkit-core-sbom.cdx.json \
+            || (echo "::error::Signal Model violation: banned network crate in core SBOM" && exit 1)
+      - name: Egress audit — build binary and verify no network syscalls
+        run: |
+          sudo apt-get update && sudo apt-get install -y strace
+          cargo build --release -p perceptkit-cli
+          timeout 5 strace -f -e trace=network \
+            ./target/release/perceptkit version 2>&1 \
+            | tee release-artifacts/egress_audit.txt \
+            || true
+          # Strict: no successful socket(AF_INET|AF_INET6) calls
+          if grep -E 'socket\(AF_INET[^)]*\)\s*=\s*[0-9]+' release-artifacts/egress_audit.txt; then
+            echo "::error::Signal Model violation: perceptkit binary made network syscalls"
+            exit 1
+          fi
+          echo "Signal Model verified: no network syscalls during version command"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signal-model-evidence
+          path: release-artifacts/
+
   summary:
     name: Release summary
-    needs: [build-wheels]
+    needs: [build-wheels, sbom]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -100,6 +139,8 @@ jobs:
           echo "- dry_run: ${{ inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
           echo "- publish_pypi: ${{ inputs.publish_pypi }}" >> $GITHUB_STEP_SUMMARY
           echo "- publish_crates: ${{ inputs.publish_crates }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Signal Model evidence (cargo-sbom + egress audit) attached as artifact." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "For PyPI, configure https://pypi.org/manage/account/publishing/ with this repo." >> $GITHUB_STEP_SUMMARY
           echo "For crates.io, add CARGO_REGISTRY_TOKEN secret." >> $GITHUB_STEP_SUMMARY

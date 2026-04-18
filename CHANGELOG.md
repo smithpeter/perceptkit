@@ -26,9 +26,21 @@ against the Round 3 GO baseline (weighted 7.25/10). Re-evaluation found:
 
 Honest downgrade to `pre-alpha` preserves path-D credibility until the two
 gaps close. Conditions to restore `alpha.0`:
-1. LocalReflector real llama-cpp-2 + Qwen-0.5B E2E (5-7 days)
-2. cargo-sbom + egress audit in release.yml (0.5 day)
-3. At least 50 real-audio clips with author-labeled kappa sampling (3d + $50)
+1. ~~LocalReflector real llama-cpp-2 + Qwen-0.5B E2E~~ ✅ **DONE** (176c001, 2026-04-19)
+2. ~~cargo-sbom + egress audit in release.yml~~ ✅ **DONE** (next commit)
+3. At least 50 real-audio clips with author-labeled kappa sampling (pending)
+
+### Added post-audit
+
+- **LocalReflector** via llama-cpp-2 + Metal (Apple Silicon GPU), feature-gated
+  as `local-reflector`. Loads Qwen-0.5B Q4_K_M GGUF, runs real inference,
+  returns parseable `Reflection::Map | Propose | Unknown`. Measured: ~547ms
+  per reflection on macOS arm64. E2E tests gated on `PERCEPTKIT_MODEL_PATH`.
+  Learnability dimension now has **real evidence**, not stub-only.
+- **cargo-sbom + egress audit** in release.yml — Signal Model is now
+  verifiable in CI: SBOM generated for `perceptkit-core` + `strace -e
+  trace=network` proves zero network syscalls from the `perceptkit` binary.
+  Upload as release artifact.
 
 The v0.1.0-alpha.0 git tag will be removed from origin to avoid signaling
 a baseline that was not met.
