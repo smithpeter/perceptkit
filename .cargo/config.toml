@@ -1,0 +1,21 @@
+# macOS linker config for PyO3 extension-module cdylib.
+#
+# Background: perceptkit-py is cdylib with pyo3 feature "extension-module",
+# which tells PyO3 not to link Python. Linux permits unresolved symbols on
+# cdylib; macOS does not — without dynamic_lookup, `cargo build` fails at
+# link time with missing _PyExc_* symbols. At runtime Python provides them
+# when the .so is loaded via `import`.
+#
+# maturin sets this automatically; plain `cargo build --workspace` needs it.
+
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-undefined",
+    "-C", "link-arg=dynamic_lookup",
+]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-undefined",
+    "-C", "link-arg=dynamic_lookup",
+]
