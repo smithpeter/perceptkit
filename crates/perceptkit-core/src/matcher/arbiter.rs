@@ -40,17 +40,15 @@ impl Arbiter for PriorityArbiter {
         if matches.is_empty() {
             return SceneDecision::unknown();
         }
-        // Stable max by (priority, confidence, -scene_id).
+        // Stable max by (priority desc, confidence desc, scene_id asc).
         let mut best: Option<&SceneMatch> = None;
         for m in matches {
             best = Some(match best {
                 None => m,
                 Some(cur) => {
-                    if (m.priority, m.confidence) > (cur.priority, cur.confidence) {
-                        m
-                    } else if (m.priority, m.confidence) == (cur.priority, cur.confidence)
-                        && m.scene_id < cur.scene_id
-                    {
+                    let m_key = (m.priority, m.confidence);
+                    let cur_key = (cur.priority, cur.confidence);
+                    if m_key > cur_key || (m_key == cur_key && m.scene_id < cur.scene_id) {
                         m
                     } else {
                         cur
