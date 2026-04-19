@@ -4,14 +4,15 @@ use perceptkit_core::{FeatureDescriptor, FeatureKey, FeatureKind, FeatureValue, 
 
 use crate::extractor::FeatureExtractor;
 
-/// Produces 4 features:
+/// Produces 5 features:
 /// - `audio.rms` (0-1)
 /// - `audio.rms_db` (absolute dBFS)
 /// - `audio.peak` (0-1)
-/// - `audio.rms_db_pn` (peak-normalized RMS in dB relative to peak,
-///   robust across datasets with differing normalization levels;
-///   e.g. ESC-50 is peak-normalized to ~0 dBFS and produces negative
-///   rms_db_pn values even for "quiet" recordings)
+/// - `audio.rms_db_pn` (peak-normalized RMS in dB relative to peak;
+///   robust across datasets with differing normalization levels)
+/// - `audio.low_energy_ratio` (fraction of 50ms sub-windows whose RMS
+///   is below 10% of the overall peak; high for "quiet with bursts"
+///   audio like clock-ticks, near-zero for sustained sounds like engines)
 #[derive(Debug, Default, Clone)]
 pub struct EnergyExtractor;
 
@@ -96,6 +97,17 @@ impl FeatureExtractor for EnergyExtractor {
                 source: concat!("perceptkit-audio@", env!("CARGO_PKG_VERSION")).into(),
                 version: 1,
             },
+            FeatureDescriptor {
+                key: FeatureKey::new("audio.low_energy_ratio").unwrap(),
+                kind: FeatureKind::F64 {
+                    min: Some(0.0),
+                    max: Some(1.0),
+                },
+                unit: Some("ratio_0_1".into()),
+                window: TimeWindow::Sliding { ms: 1000 },
+                source: concat!("perceptkit-audio@", env!("CARGO_PKG_VERSION")).into(),
+                version: 1,
+            },
         ]
     }
 
@@ -107,6 +119,32 @@ impl FeatureExtractor for EnergyExtractor {
         } else {
             -120.0
         };
+
+        // Low-energy ratio: fraction of 50ms sub-windows whose RMS < 10% of peak.
+        // 0.0 for sustained sounds; 0.5+ for transient/sparse audio.
+        let sub_window = 800_usize; // 50ms @ 16 kHz
+        let low_energy_ratio = if pcm.len() < sub_window || peak_v < 1e-9 {
+            0.0
+        } else {
+            let threshold = (peak_v as f64) * 0.10;
+            let mut total = 0_usize;
+            let mut low = 0_usize;
+            for chunk in pcm.chunks(sub_window) {
+                if chunk.len() < sub_window / 2 {
+                    continue;
+                }
+                total += 1;
+                if rms(chunk) < threshold {
+                    low += 1;
+                }
+            }
+            if total == 0 {
+                0.0
+            } else {
+                low as f64 / total as f64
+            }
+        };
+
         vec![
             (
                 FeatureKey::new("audio.rms").unwrap(),
@@ -123,6 +161,10 @@ impl FeatureExtractor for EnergyExtractor {
             (
                 FeatureKey::new("audio.rms_db_pn").unwrap(),
                 FeatureValue::F64(peak_normalized_rms),
+            ),
+            (
+                FeatureKey::new("audio.low_energy_ratio").unwrap(),
+                FeatureValue::F64(low_energy_ratio),
             ),
         ]
     }
@@ -163,15 +205,48 @@ mod tests {
     }
 
     #[test]
-    fn extractor_emits_four_features() {
-        let pcm = vec![0.5_f32; 100];
+    fn extractor_emits_five_features() {
+        let pcm = vec![0.5_f32; 16000];
         let out = EnergyExtractor.extract(&pcm, 16000);
-        assert_eq!(out.len(), 4);
+        assert_eq!(out.len(), 5);
         let keys: Vec<_> = out.iter().map(|(k, _)| k.as_str()).collect();
         assert!(keys.contains(&"audio.rms"));
         assert!(keys.contains(&"audio.rms_db"));
         assert!(keys.contains(&"audio.peak"));
         assert!(keys.contains(&"audio.rms_db_pn"));
+        assert!(keys.contains(&"audio.low_energy_ratio"));
+    }
+
+    #[test]
+    fn low_energy_ratio_is_zero_for_constant_signal() {
+        let pcm = vec![0.5_f32; 16000];
+        let v = EnergyExtractor
+            .extract(&pcm, 16000)
+            .into_iter()
+            .find(|(k, _)| k.as_str() == "audio.low_energy_ratio")
+            .unwrap()
+            .1
+            .as_f64()
+            .unwrap();
+        assert_eq!(v, 0.0, "constant signal has all sub-windows at peak");
+    }
+
+    #[test]
+    fn low_energy_ratio_is_high_for_sparse_bursts() {
+        // 10 sub-windows: 1 loud (peak=0.9) + 9 quiet (~0).
+        let mut pcm: Vec<f32> = vec![0.0; 8000];
+        for s in pcm.iter_mut().take(800) {
+            *s = 0.9;
+        }
+        let v = EnergyExtractor
+            .extract(&pcm, 16000)
+            .into_iter()
+            .find(|(k, _)| k.as_str() == "audio.low_energy_ratio")
+            .unwrap()
+            .1
+            .as_f64()
+            .unwrap();
+        assert!(v >= 0.8, "sparse bursts → low_energy_ratio ≥ 0.8, got {v}");
     }
 
     #[test]
