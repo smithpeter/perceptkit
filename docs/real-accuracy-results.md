@@ -239,4 +239,40 @@ production-quality for non-meeting scenes.
 | v0.2 + context + scenes | 26.5% | 98% | 2% | 0% | 0% |
 | v0.2 + spectral feature | 25.0% | 98% | 2% | 0% | 0% (UNKNOWN, was wrong) |
 | **v0.2 + flatness-gated VAD** | **30.5%** | **98%** | **20%** | **4%** | **0%** |
-| v0.3 target (rten/ort + speaker count) | ≥ 55% | 98% | ≥ 60% | ≥ 30% | ≥ 50% |
+| v0.2 + 9 scenes (heuristic VAD) | **34.0%** | 98% | 20% | 4% | 14% |
+| **v0.2 + Silero VAD (rten)** | **37.0%** | **98%** | **32%** | **4%** | **14%** |
+| v0.3 target (Silero + speaker count) | ≥ 55% | 98% | ≥ 60% | ≥ 30% | ≥ 50% |
+
+## Silero VAD integration (2026-04-19)
+
+After tract-onnx (v0.22 op compat) and ort (rc.12 ABI mismatch, rc.8 272
+compile errors) both failed, **rten** (Robert Knight's pure-Rust ML runtime)
+worked on the first try. Conversion: `rten-convert silero_vad.onnx silero_vad.rten`
+(2.3 MB). Integration:
+
+- `cargo add rten rten-tensor` behind `silero-vad` feature
+- New `SileroVadExtractor` (480-sample 30 ms windows, threading LSTM state)
+- `AudioProvider::with_defaults_silero(model_path)` swaps heuristic VAD
+- Python: `SceneEngine.from_dir_silero(scenes, model)` (built with `-F silero-vad`)
+
+**Direct A/B on identical 200-clip ESC-50 dataset**:
+
+| Metric | Heuristic VAD | Silero VAD | Δ |
+|---|---|---|---|
+| Top-1 | 0.3400 | **0.3700** | +0.030 |
+| Macro-F1 | 0.3721 | **0.3998** | +0.028 |
+| Cohen's kappa | 0.2247 | **0.2544** | +0.030 |
+| outdoor_noisy F1 | 0.2128 | **0.3200** | **+0.107** |
+| multi_speaker_chat F1 | 0.2222 | 0.2258 | +0.004 |
+| near_silence F1 | 0.0635 | 0.0635 | 0.000 |
+| driving F1 | 0.9899 | 0.9899 | 0.000 |
+
+Win is concentrated where the old VAD over-fired voice on natural noise
+(rain/wind/sea), now correctly suppressed → outdoor_noisy rule fires. The
+remaining ceiling on multi_speaker_chat and near_silence is **not** a VAD
+problem — it's the heuristic speaker-count stub and missing energy-floor
+calibration. v0.3 candidates: real speaker embedding + dataset-calibrated
+near_silence threshold.
+
+**Signal Model preserved**: rten loads from local `.rten` file, no network
+calls. `cargo deny` continues to block all HTTP crates.

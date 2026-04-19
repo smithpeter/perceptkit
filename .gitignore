@@ -41,6 +41,9 @@ dataset/raw/
 .env
 .env.local
 
+# Bench outputs (regenerable)
+real_bench*.jsonl
+
 # Models (too large for git, tracked via docs/ instructions)
 models/
 *.gguf

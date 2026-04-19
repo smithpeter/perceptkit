@@ -1,18 +1,13 @@
-//! E2E test: load Silero VAD ONNX and verify it distinguishes speech from noise.
+//! E2E test: load Silero VAD .rten model and verify it distinguishes speech from noise.
 //!
-//! Only runs when `PERCEPTKIT_SILERO_MODEL` env points to a valid ONNX file.
+//! Only runs when `PERCEPTKIT_SILERO_MODEL` env points to a valid .rten file.
 //!
 //! Run:
 //! ```bash
-//! PERCEPTKIT_SILERO_MODEL=./models/silero_vad.onnx \
+//! PERCEPTKIT_SILERO_MODEL=./models/silero_vad.rten \
 //!     cargo test -p perceptkit-audio --features silero-vad \
 //!     --test silero_e2e -- --nocapture
 //! ```
-
-//! NOTE: All tests are `#[ignore]` as of 2026-04-19 because tract-onnx
-//! 0.22.1 has operator-compatibility bugs with Silero v4 and v5 ONNX
-//! exports. Run with `--ignored` once a compatible backend (e.g. ort) is
-//! wired.
 
 #![cfg(feature = "silero-vad")]
 
@@ -41,7 +36,6 @@ fn get_voice_ratio(out: &[(perceptkit_core::FeatureKey, FeatureValue)]) -> f64 {
         .unwrap_or(-1.0)
 }
 
-#[ignore = "tract-onnx 0.22 incompatible with Silero v4/v5 — swap to ort"]
 #[test]
 fn silero_silence_has_low_voice_ratio() {
     let Some(path) = model_path() else {
@@ -59,14 +53,12 @@ fn silero_silence_has_low_voice_ratio() {
     );
 }
 
-#[ignore = "tract-onnx 0.22 incompatible with Silero v4/v5 — swap to ort"]
 #[test]
 fn silero_white_noise_has_low_voice_ratio() {
     let Some(path) = model_path() else {
         return;
     };
     let ex = SileroVadExtractor::from_model_path(&path).expect("load model");
-    // Pseudo-random noise (xorshift-ish) at moderate amplitude
     let mut seed: u64 = 0xDEAD_BEEF_CAFE_F00D;
     let pcm: Vec<f32> = (0..16000)
         .map(|_| {
@@ -79,20 +71,14 @@ fn silero_white_noise_has_low_voice_ratio() {
     let out = ex.extract(&pcm, 16000);
     let voice_ratio = get_voice_ratio(&out);
     println!("white noise → voice_ratio = {voice_ratio}");
-    // Critical test: our simple VAD said "voice" on white noise; Silero
-    // should say "no voice". Allow up to 30% false positive but expect low.
     assert!(
         voice_ratio < 0.4,
         "white noise should have low voice_ratio, got {voice_ratio}"
     );
 }
 
-#[ignore = "tract-onnx 0.22 incompatible with Silero v4/v5 — swap to ort"]
 #[test]
-fn silero_sine_wave_at_speech_freq_may_trigger_or_not() {
-    // 200 Hz sine is a synthetic proxy for speech energy but lacks the
-    // spectral / temporal richness Silero expects. It may or may not trigger.
-    // This test just checks the extractor runs without panic and produces a valid ratio.
+fn silero_sine_wave_runs_without_panic() {
     let Some(path) = model_path() else {
         return;
     };
@@ -104,7 +90,6 @@ fn silero_sine_wave_at_speech_freq_may_trigger_or_not() {
     assert!((0.0..=1.0).contains(&voice_ratio));
 }
 
-#[ignore = "tract-onnx 0.22 incompatible with Silero v4/v5 — swap to ort"]
 #[test]
 fn silero_emits_three_features() {
     let Some(path) = model_path() else {

@@ -42,6 +42,30 @@ impl AudioProvider {
         }
     }
 
+    /// Same as [`with_defaults`] but swaps the heuristic VAD for the
+    /// production-grade Silero VAD (rten backend). Returns `Err` if the
+    /// `.rten` model fails to load.
+    ///
+    /// The model file is converted from the upstream Silero ONNX:
+    /// ```bash
+    /// pip install rten-convert
+    /// rten-convert silero_vad.onnx silero_vad.rten
+    /// ```
+    #[cfg(feature = "silero-vad")]
+    pub fn with_defaults_silero(
+        model_path: impl AsRef<std::path::Path>,
+    ) -> Result<Self, rten::LoadError> {
+        let silero = crate::SileroVadExtractor::from_model_path(model_path)?;
+        Ok(Self {
+            extractors: vec![
+                Box::new(EnergyExtractor),
+                Box::new(silero),
+                Box::new(MultiSpeakerExtractor::default()),
+                Box::new(SpectralExtractor::default()),
+            ],
+        })
+    }
+
     /// Append a custom extractor.
     pub fn with_extractor(mut self, extractor: Box<dyn FeatureExtractor>) -> Self {
         self.extractors.push(extractor);

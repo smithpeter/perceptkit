@@ -19,3 +19,9 @@ perceptkit-core = { path = "../perceptkit-core", version = "0.1.0-dev.1" }
 perceptkit-audio = { path = "../perceptkit-audio", version = "0.1.0-dev.1" }
 pyo3 = { version = "0.21", features = ["extension-module", "abi3-py311"] }
 numpy = "0.21"
+
+[features]
+default = []
+# Forward Silero VAD support to perceptkit-audio. Enables
+# `SceneEngine.from_dir_silero(scenes, model)` constructor in Python.
+silero-vad = ["perceptkit-audio/silero-vad"]

@@ -88,6 +88,12 @@ def main() -> int:
     p.add_argument("--out", type=Path, required=True, help="output JSONL path")
     p.add_argument("--scenes", type=Path, default=Path("./scenes"), help="scenes dir for sanity scene_ids check")
     p.add_argument("--sample-rate", type=int, default=16000)
+    p.add_argument(
+        "--silero",
+        type=Path,
+        default=None,
+        help="path to silero_vad.rten model. If set, uses Silero VAD instead of heuristic VAD.",
+    )
     args = p.parse_args()
 
     if not args.labels.exists():
@@ -98,7 +104,21 @@ def main() -> int:
         return 2
 
     # Load engine to verify scene ids are real.
-    engine = perceptkit.SceneEngine.from_dir(str(args.scenes))
+    if args.silero is not None:
+        if not args.silero.exists():
+            print(f"error: silero model not found: {args.silero}", file=sys.stderr)
+            return 2
+        if not hasattr(perceptkit.SceneEngine, "from_dir_silero"):
+            print(
+                "error: --silero requires perceptkit built with silero-vad feature: "
+                "maturin develop -F silero-vad",
+                file=sys.stderr,
+            )
+            return 2
+        engine = perceptkit.SceneEngine.from_dir_silero(str(args.scenes), str(args.silero))
+        print(f"Using Silero VAD: {args.silero}", file=sys.stderr)
+    else:
+        engine = perceptkit.SceneEngine.from_dir(str(args.scenes))
     valid_scenes = set(engine.scene_ids())
 
     # Read labels — optional context_* columns are injected into the bundle

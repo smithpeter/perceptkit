@@ -102,6 +102,23 @@ impl PyEngine {
         })
     }
 
+    /// Same as `from_dir` but swaps the heuristic VAD for Silero (rten
+    /// backend). `model_path` must point to a `.rten` file (convert via
+    /// `pip install rten-convert; rten-convert silero_vad.onnx silero_vad.rten`).
+    /// Only available when the `silero-vad` build feature is enabled.
+    #[cfg(feature = "silero-vad")]
+    #[staticmethod]
+    fn from_dir_silero(scenes_path: &str, model_path: &str) -> PyResult<Self> {
+        let engine = CoreEngine::from_dir(Path::new(scenes_path))
+            .map_err(|e| PyValueError::new_err(format!("{e}")))?;
+        let provider = AudioProvider::with_defaults_silero(Path::new(model_path))
+            .map_err(|e| PyValueError::new_err(format!("silero load: {e}")))?;
+        Ok(Self {
+            engine,
+            audio_provider: provider,
+        })
+    }
+
     /// Analyze raw PCM (f32 mono in [-1, 1]) at `sample_rate` Hz → SceneDecision.
     ///
     /// Zero-copy into Rust: expects C-contiguous numpy.ndarray (dtype=float32).

@@ -126,7 +126,7 @@ impl FeatureExtractor for EnergyExtractor {
         let low_energy_ratio = if pcm.len() < sub_window || peak_v < 1e-9 {
             0.0
         } else {
-            let threshold = (peak_v as f64) * 0.10;
+            let threshold = peak_v * 0.10;
             let mut total = 0_usize;
             let mut low = 0_usize;
             for chunk in pcm.chunks(sub_window) {
