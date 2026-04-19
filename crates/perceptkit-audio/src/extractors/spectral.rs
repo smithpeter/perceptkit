@@ -53,6 +53,35 @@ impl SpectralExtractor {
         }
     }
 
+    /// Compute spectral flatness alone (cheaper than the full extractor).
+    /// Returns Wiener entropy in [0, 1]. Useful for noise vs voice gating
+    /// in the VAD without re-running the full feature pipeline.
+    pub fn flatness_only(frame: &[f32], n_fft: usize) -> f32 {
+        let win = Self::hann_window(n_fft);
+        let mut buf: Vec<Complex32> = (0..n_fft)
+            .map(|i| {
+                let s = if i < frame.len() { frame[i] } else { 0.0 };
+                Complex32::new(s * win[i], 0.0)
+            })
+            .collect();
+        let mut planner = FftPlanner::<f32>::new();
+        planner.plan_fft_forward(n_fft).process(&mut buf);
+        let half = n_fft / 2 + 1;
+        let mag: Vec<f32> = buf.iter().take(half).map(|c| c.norm()).collect();
+        let slice = &mag[1..]; // skip DC bin
+        if slice.is_empty() {
+            return 0.0;
+        }
+        let n = slice.len() as f32;
+        let am = slice.iter().sum::<f32>() / n;
+        if am < 1e-12 {
+            return 0.0;
+        }
+        let gm_log: f32 = slice.iter().map(|&x| (x + 1e-12).ln()).sum::<f32>() / n;
+        let gm = gm_log.exp();
+        (gm / am).clamp(0.0, 1.0)
+    }
+
     fn hann_window(n: usize) -> Vec<f32> {
         (0..n)
             .map(|i| {

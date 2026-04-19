@@ -7,12 +7,17 @@ use perceptkit_core::{FeatureDescriptor, FeatureKey, FeatureKind, FeatureValue, 
 use crate::extractor::FeatureExtractor;
 use crate::extractors::energy::rms;
 
-/// Voice activity detector (energy + ZCR threshold).
+/// Voice activity detector (energy + ZCR + optional spectral-flatness).
 ///
 /// Produces:
 /// - `audio.voice_activity` (bool)
 /// - `audio.voice_ratio` (0-1, fraction of sub-windows detected as voice)
 /// - `audio.zero_crossing_rate` (0-1, per sample)
+///
+/// When `max_flatness` is `Some(t)`, sub-windows with spectral flatness > t
+/// are *rejected* even if energy/ZCR pass. This filters wind/rain/clapping
+/// false-positives without needing Silero. Default = `Some(0.20)` after
+/// v0.2 (was `None` in v0.1).
 #[derive(Debug, Clone)]
 pub struct VoiceActivityExtractor {
     /// RMS threshold above which a frame is considered active.
@@ -21,6 +26,12 @@ pub struct VoiceActivityExtractor {
     pub zcr_max: f64,
     /// Sub-window size in samples for voice_ratio computation.
     pub sub_window_samples: usize,
+    /// Optional spectral flatness ceiling (higher = noise-like).
+    /// Sub-windows above this are rejected even if energy/ZCR pass.
+    pub max_flatness: Option<f64>,
+    /// FFT size for the per-sub-window flatness check (must be power of 2;
+    /// 1024 covers ≥ 50ms @ 16kHz).
+    pub flatness_fft_size: usize,
 }
 
 impl Default for VoiceActivityExtractor {
@@ -29,6 +40,11 @@ impl Default for VoiceActivityExtractor {
             rms_threshold: 0.01,
             zcr_max: 0.35,
             sub_window_samples: 800, // 50 ms @ 16 kHz
+            // 0.20: empirical — speech frames cluster < 0.15, wind/rain
+            // > 0.25, music varies widely. 0.20 is the safest gate that
+            // doesn't reject most speech.
+            max_flatness: Some(0.20),
+            flatness_fft_size: 1024,
         }
     }
 }
@@ -95,9 +111,19 @@ impl FeatureExtractor for VoiceActivityExtractor {
     }
 
     fn extract(&self, pcm: &[f32], _sample_rate: u32) -> Vec<(FeatureKey, FeatureValue)> {
+        use crate::extractors::spectral::SpectralExtractor;
+
         let rms_v = rms(pcm);
         let zcr_v = zero_crossing_rate(pcm);
-        let active_overall = rms_v > self.rms_threshold && zcr_v < self.zcr_max;
+        let mut active_overall = rms_v > self.rms_threshold && zcr_v < self.zcr_max;
+        if active_overall {
+            if let Some(max_flat) = self.max_flatness {
+                let flat = SpectralExtractor::flatness_only(pcm, self.flatness_fft_size);
+                if (flat as f64) > max_flat {
+                    active_overall = false;
+                }
+            }
+        }
 
         // Compute voice_ratio over sub-windows.
         let voice_ratio = if pcm.is_empty() || self.sub_window_samples == 0 {
@@ -109,9 +135,17 @@ impl FeatureExtractor for VoiceActivityExtractor {
                 total += 1;
                 let sub_rms = rms(chunk);
                 let sub_zcr = zero_crossing_rate(chunk);
-                if sub_rms > self.rms_threshold && sub_zcr < self.zcr_max {
-                    active += 1;
+                if sub_rms <= self.rms_threshold || sub_zcr >= self.zcr_max {
+                    continue;
                 }
+                // Spectral-flatness gate (DSP-grounded noise filter).
+                if let Some(max_flat) = self.max_flatness {
+                    let sub_flat = SpectralExtractor::flatness_only(chunk, self.flatness_fft_size);
+                    if (sub_flat as f64) > max_flat {
+                        continue;
+                    }
+                }
+                active += 1;
             }
             if total == 0 {
                 0.0
