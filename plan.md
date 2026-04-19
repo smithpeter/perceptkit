@@ -448,25 +448,36 @@ D60 未过 M6 Qwen 集成
 
 ---
 
-## 11. v0.2 Roadmap（从 4.5% 真实数字推导）
+## 11. v0.2 Roadmap — Data Flywheel 启动（v2.0 重写）
 
-见 `docs/v0.2-design-inputs.md`，核心 P0-P4：
+> **v1.0 旧 roadmap (P0-P5 polish OSS) 已废弃。** v2.0 元假设激活后，v0.2 主线从"提升 Top-1 准确率"改为"启动数据飞轮 + ship 旗舰 vertical bench"。详见 `STRATEGY.md §11+§12+§13`。
 
-- **P0** 音频-only 场景包 (ambient_music / near_silence / sustained_speech)
-- **P1** Silero VAD ONNX 替换能量+ZCR VAD
-- **P2** dBFS normalization + `with_loudness_target` API
-- **P3** `eval --inject-context` 合成上下文模式
-- **P4** 频谱特征 (flatness / centroid / pitch) via `ComplexSpectralExtractor`
-- **P5** Bench 扩展到 350+ 片段，macro-F1 ≥ 0.60 → 0.72
+**v0.2 目标定义**:
+- **Primary**: `perceptkit-bench-knowledge-work-v0` ship ≥ 200h labeled vertical data
+- **Primary**: `perceptkit-cloud` crate v0.1 ship（opt-in telemetry + dataset upload，独立 SBOM）
+- **Primary**: VoxSign anonymizer 管道跑通，第一批数据流入 `perceptkit-bench-internal`
+- **Secondary**: ≥ 1 数据合作伙伴 LOI（Granola / Superwhisper / Wispr Flow 三选一）
+- **Secondary**: vertical bench macro-F1 ≥ 0.70 baseline
+- ~~Top-1 准确率提升~~ (副作用，不再是 v0.2 主目标)
 
-目标: v0.2 ship real macro-F1 ≥ 0.72 on 350+ clips（战略 Accuracy 目标原始值 0.85 仍留 v0.3+）。
+**v0.2 已完成（M8 之前的 v0.1.x 改进）**:
+- ✅ 音频-only 场景包（已 ship: ambient_music / near_silence / sustained_speech）
+- ✅ 频谱特征（rustfft FFT-based flatness / centroid / rolloff）
+- ✅ 合成上下文模式（bench --inject-context）
+- ✅ Silero VAD via rten（commit 99b92ad，Top-1 34→37%）
+- ✅ Heuristic MultiSpeakerExtractor
 
-## 12. 非目标（v0.1 明确不做，见 STRATEGY.md §6 + §11）
+**v0.2 待做（M8-M10，见 §15）**:
+- ⏳ M8 — `perceptkit-cloud` crate 骨架
+- ⏳ M9 — `perceptkit-bench-knowledge-work-v0` 数据集 + 10 vertical scenes
+- ⏳ M10 — VoxSign anonymizer 管道（在 VoxSign 仓内）
+
+## 12. 非目标（v0.1 明确不做，v2.0 修订）
 
 - ASR / LLM 推理 in core / 音频采集 / streaming API / Temporal DSL / Stateful DSL / Per-user override / Vision / Text / 商业化 / Evolution Loop 自动 commit
-- **Flywheel Telemetry** (永不做，见 STRATEGY §11.3 "Signal 模型"承诺)
+- ~~**Flywheel Telemetry** (永不做)~~ **[v2.0 修订]** core/audio/py 永不做，新 `perceptkit-cloud` crate opt-in 默认关
 - **CLA** (用 DCO，见 STRATEGY §11.7)
-- **VoxSign 真实用户数据进 perceptkit 公开 pipeline** (见 STRATEGY §11.5)
+- ~~**VoxSign 真实用户数据进 perceptkit 公开 pipeline**~~ **[v2.0 修订]** 不进**直接** public pipeline，但脱敏聚合后入 internal 池，筛选审核后流入公开池（详见 STRATEGY §11.5 v2.0）
 
 ---
 
@@ -499,3 +510,144 @@ D60 未过 M6 Qwen 集成
 ---
 
 **此 plan 是 perceptkit v0.1 的工程契约。M1 脚手架开工前需用户签字"plan 确认，可以开 M1"。**
+
+---
+
+## 15. v0.2 Milestones — Data Flywheel (v2.0 新增)
+
+> v0.1 工程契约见 §1-§14。本节为 v0.2 数据飞轮启动的工程契约。预算: ≤ 2 人月（44 工作日）。
+
+### 15.1 总览
+
+| M | 名称 | 天数 | 目标维度 | 关键产出 |
+|---|---|---|---|---|
+| M8 | `perceptkit-cloud` crate 骨架 | 12 | +Adaptivity | TelemetryReporter trait + DatasetUploader CLI + opt-in flow + 独立 SBOM |
+| M9 | Vertical bench v0 (knowledge_work) | 18 | +Accuracy +Learnability | 10 vertical scenes YAML + 200h labeled bench + macro-F1 0.70 baseline |
+| M10 | VoxSign anonymizer 管道 (in VoxSign 仓) | 10 | +Learnability | `voxsign-anonymizer` 工具 + 第一批数据流入 perceptkit-bench-internal |
+| M11 | 数据合作 probe (Path Y') | 4 | +Adaptivity | Granola/Superwhisper/Wispr 探测 + 1 LOI |
+|   | **合计** | **44d ≈ 2 人月** |   |   |
+
+### 15.2 M8 — perceptkit-cloud Crate (12d)
+
+**新 crate**: `crates/perceptkit-cloud/`
+
+**关键 API**:
+```rust
+// opt-in telemetry
+pub trait TelemetryReporter: Send + Sync {
+    async fn report(&self, decision: SanitizedDecision) -> Result<(), CloudError>;
+}
+
+// opt-in dataset upload
+pub struct DatasetUploader {
+    pub contributor_email: String,
+    pub fields: UploadFields,  // ScenesOnly | WithFeatures | WithPCMHash
+    pub frequency: UploadFrequency,  // PerCall | DailyAggregate | WeeklyAggregate
+}
+```
+
+**CLI**:
+- `perceptkit cloud init` — 交互 prompt 配置
+- `perceptkit cloud preview` — 显示即将上传内容
+- `perceptkit cloud upload` — 显式触发
+- `perceptkit cloud opt-out` / `delete`
+
+**工程隔离**:
+- `perceptkit-cloud` depends on `perceptkit-core`，反向 forbidden（`cargo deny` workspace check）
+- 独立 `crates/perceptkit-cloud/deny.toml` 允许 reqwest（核心依然封）
+- CI 双 profile: `default` 不编译 cloud, `with-cloud` 跑 cloud tests
+- README 双 quickstart: embedded 在前默认推荐，cloud 在贡献章节
+
+**DoD**:
+- [ ] `cargo build -p perceptkit-cloud --features cloud` 绿
+- [ ] `cargo deny -p perceptkit-core` 仍封 reqwest（不放宽）
+- [ ] CI 双 profile 双绿
+- [ ] CLI 4 子命令 e2e 测试通过
+- [ ] `pip install perceptkit[cloud]` Python wheel 可装可用
+- [ ] `docs/cloud-egress-spec.md` 列出每个上传字段
+
+### 15.3 M9 — Vertical Bench knowledge_work-v0 (18d)
+
+**新 repo**: `smithpeter/perceptkit-bench-knowledge-work-v0`
+
+**10 vertical scenes** (YAML)：见 STRATEGY §13.2，`scenes/knowledge_work/` 目录
+
+**数据采集** (200h):
+- VoxSign 脱敏 ≥ 60% (120h，需 M10 完成)
+- ICSI Meeting Corpus + AMI ≈ 80h（公开下载）
+- 合作方候选数据（M11 阳性才有，否则用合成补）
+
+**标注**:
+- $1500 预算（4 Prolific 标注员 × 50h × $7.5/h）
+- kappa ≥ 0.75
+- per-scene kappa ≥ 0.65
+- 10 scenes × ≥ 30 samples 单类
+
+**Eval**:
+- vertical macro-F1 baseline ≥ 0.70
+- meeting/non-meeting binary F1 ≥ 0.92
+- HuggingFace dataset card + Datasheet + Model Card + Eval Card 三件套
+
+**DoD**:
+- [ ] 10 scenes YAML + perceptkit lint 无冲突
+- [ ] 200h labeled data on HF
+- [ ] sha 公证锁 GitHub Release
+- [ ] eval gate CI: `cargo test --features bench-knowledge-work -- accuracy_gate` 必过
+- [ ] DATA.md §9 完整填写
+
+### 15.4 M10 — VoxSign Anonymizer 管道 (10d, 在 VoxSign 仓)
+
+**位置**: `~/VoxSign/tools/voxsign-anonymizer/`（VoxSign 仓内独立工具，**不**在 perceptkit 仓）
+
+**功能**:
+- 输入: VoxSign 用户原始 trace（含 audio + transcript + metadata）
+- 处理: 删除 PII / 声纹 hash / 时间戳粗化 / GPT 改写文本
+- 聚合: 单 trace 不直传，最小 100 同类聚合
+- 输出: `perceptkit-bench-internal` 兼容 schema
+
+**审核流程**:
+- 每批 VoxSign 法务 + 技术 lead 双签
+- Re-identification rate audit 季度抽样 < 1%
+- 用户 opt-out 即停止后续
+
+**DoD**:
+- [ ] `voxsign-anonymizer` Python 工具可跑
+- [ ] 第一批 100 样本流入 `perceptkit-bench-internal`
+- [ ] VoxSign EULA 更新含数据共享条款
+- [ ] 法务 + 技术双签 sign-off 模板就位
+- [ ] re-identification audit 协议文档化
+
+### 15.5 M11 — 数据合作 Probe (4d, Path Y')
+
+按 **Path Y'**（probe-first partnership）执行：
+
+| W | 动作 |
+|---|---|
+| W1 | 读 5 候选项目（Granola/Superwhisper/Wispr/OpenInterpreter/Pi-Apps）的 README + 30 PR/issue |
+| W2 | 对 top 3 写 1 段 GitHub Discussion，主题"是否需要 multimodal scene perception" |
+| W3 | 对回复阳性的 1-2 个，写 1 页 design doc 发 issue 征求意见 |
+| W4 | 只对 design doc 正向 review 的项目，提**数据合作** LOI（不是代码 PR） |
+
+**核心动机变化**: 之前 Path Y 探合作方是为"开源采纳"，v2.0 改为探"**数据合作**"——他们能否提供脱敏会议数据交换 vertical bench credit + scene 定义参与权。
+
+**DoD**:
+- [ ] 5 候选 probe 报告
+- [ ] ≥ 1 LOI（Letter of Intent）签订
+- [ ] 退出条件: 4 周后 0 阳性 → 暂停 Y'，回 X 或 Z 评估
+
+### 15.6 v0.2 Kill-switch (D60 D80 D100)
+
+| 触发 | 砍刀 |
+|---|---|
+| D60 (M8 未完) | 砍 M11，cloud crate 必须 ship 否则 v0.2 无核心交付 |
+| D80 (M9 未完 200h) | 数据规模降到 80h，标注预算 $600 |
+| D100 (M10 未完) | VoxSign anonymizer 延后 v0.3，bench 仅用公开数据 |
+
+### 15.7 v0.2 完成定义 (DoD)
+
+- [ ] M8-M11 所有 DoD 满足或砍刀执行
+- [ ] `perceptkit-cloud` crates.io 发布
+- [ ] `perceptkit-bench-knowledge-work-v0` HF Datasets 公开
+- [ ] `perceptkit-bench-internal` 私有仓 ≥ 100 sanitized samples
+- [ ] tag `v0.2.0` GitHub Release
+- [ ] STRATEGY.md §11.9 接受度量满足: ≥ 200h vertical data + ≥ 1 LOI = 数据壁垒升"中"

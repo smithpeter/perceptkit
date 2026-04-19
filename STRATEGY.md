@@ -4,7 +4,9 @@
 >
 > Repo: `github.com/smithpeter/perceptkit` · License: `MIT OR Apache-2.0` · 首个消费者: VoxSign
 
-**版本**: 1.0 · **生效日期**: 2026-04-18 · **经红蓝军三轮对抗确认（加权 7.25/10 ≥ 7.0 ship-worthy）**
+**版本**: 2.0 · **生效日期**: 2026-04-19 · **数据飞轮元假设激活（红蓝军 Round 5/6 对抗确认）**
+
+> **v2.0 重大变更**：用户元假设"数据是终极护城河"激活，触发 1C+2B+3C 战略大转向。Signal Model 从"项目级红线"降级为"部署级选择"；引入 dual form factor（core 嵌入式版 + cloud 数据飞轮版）；新增旗舰 vertical（知识工作者会议场景）；VoxSign 关系从"代码独立"扩展为"代码独立 + 数据流通"。详见 §11（重写）+ §12（新）+ §13（新）。
 
 ---
 
@@ -136,14 +138,16 @@ perceptkit **不是替代 LLM**，而是**让 LLM 只在该用时用**。
 - **团队**: 作者单人（可接受 VoxSign dogfooding 反馈）
 - **退出**: 2027-2028 被 Agent 平台 acquihire / 成为生态标配开源工具
 
-**Moat 评估**（Round 2 Red Team 确认为"弱"，v0.1 不强求升级）：
+**Moat 评估**（v2.0 重排：数据壁垒升为主路径）：
 
-| Moat 类型 | v0.1 | v0.2+ 提升路径 |
+| Moat 类型 | v0.1 | **v0.2+ 主路径**（v2.0 重排） |
 |---|---|---|
-| 技术壁垒 | 弱-中（Rust+PyO3 门槛） | 中（temporal/stateful DSL 超 LangChain Router） |
-| 网络效应 | 弱 | 中（社区贡献 scene YAML 库） |
-| 生态绑定 | 弱 | 中（成为 `langchain_community.perception` 首发 adapter） |
-| 数据壁垒 | 弱 | 中（perceptkit-bench 成为社区基准） |
+| **数据壁垒** ⭐ | 弱 | **强**（旗舰 vertical 数据飞轮，见 §11+§12+§13） |
+| 技术壁垒 | 弱-中（Rust+PyO3 门槛） | 中（temporal/stateful DSL + dual form factor） |
+| 生态绑定 | 弱 | 中（vertical bench 成为该领域 canonical eval） |
+| 网络效应 | 弱 | 中（社区贡献 scene YAML 库 + dataset PR） |
+
+**v2.0 元假设**（来自用户）：算力商品化、算法商品化、**数据稀缺**。因此长期 Moat 必须围绕"独家高质量数据资产"。详见 §11。
 
 **路径 D 成功标准**:
 - VoxSign 1741 行 taxonomy ≥40% 可用 perceptkit YAML 表达（M7 强制审计）
@@ -164,7 +168,7 @@ perceptkit **不是替代 LLM**，而是**让 LLM 只在该用时用**。
 - ❌ 不支持 per-user override（→ v0.2）
 - ❌ 不支持 Vision / Text modality（→ v0.3 / v0.4）
 - ❌ 不追求商业化（路径 D 明确放弃）
-- ❌ **永不做 Flywheel Telemetry**（见 §11 "Signal 模型"承诺，是 §4 A 离线承诺的极端实现）
+- ❌ ~~永不做 Flywheel Telemetry~~ **[v2.0 修订]** 详见 §11+§12：`perceptkit-core/audio/py` 永不做（嵌入式/合规承诺保留），但新增 `perceptkit-cloud` opt-in 模块支持自愿数据回流（数据飞轮入口）
 - ❌ 不用 CLA，使用 DCO (Signed-off-by)（CLA 降贡献 35%，见 §11.7）
 
 ---
@@ -215,36 +219,113 @@ perceptkit **不是替代 LLM**，而是**让 LLM 只在该用时用**。
 
 ---
 
-## 11. 数据战略（经红蓝军 Round D1 对抗确认）
+## 11. 数据战略（v2.0 — 数据飞轮元假设）
 
 ### 11.1 核心原则
 
-**"数据比算法更重要"**（用户 2026-04-18 明确指示）。但在路径 D（不融资、不商业化）约束下，数据战略必须避免两个陷阱：
+**用户元假设（2026-04-19）**："数据是终极护城河。算力、算法都比较容易买到。核心是积累数据。"
 
-1. **Common Voice 悖论** — 无商业闭环的开源数据，规模再大也不值钱（Mozilla 7 年 2800h，估值归零）
-2. **Privacy Theater 陷阱** — Differential Privacy 对个人项目不现实（Round D1 架构视角：Apple DP 团队 20+ 人，Carlini 2020/2023 证 embedding inversion 可恢复 80%+ 语义）
+这是**项目元决策**，所有其他决策让位于此。具体推论：
 
-### 11.2 两层架构（Layer 3 明确放弃）
+- 算力商品化 → Silero / YAMNet / Qwen / Whisper 都"几乎免费"
+- 算法商品化 → 论文实现 6-12 个月内必有 OSS 跟进
+- **数据稀缺** → 高质量、有标注、领域 specific 的多模态场景数据**真的买不到**
+- 因此 perceptkit 的长期价值必须围绕"积累独家数据资产"构建
+
+### 11.2 三层架构（v2.0：Layer 3 复活为 opt-in cloud）
 
 ```
-Layer 1 — Seed Dataset (v0.1, HF 托管)
-  └─ 525 片段, speaker-disjoint split, synthetic <30%, kappa ≥0.70
+Layer 1 — Seed Dataset (v0.1 已 ship)
+  └─ 公开数据 + 合成 + 525 片段标注，建立 baseline + 可信度
+
 Layer 2 — Community Contribution (v0.2)
-  └─ `perceptkit contribute` CLI, DCO (Signed-off-by), CI 校验
-Layer 3 — [明确砍掉] Flywheel Telemetry
-  └─ 遵循 "Signal 模型"：perceptkit 二进制零 network call
-     是 §4 A 离线承诺的极端实现
+  └─ `perceptkit contribute` CLI + DCO + CI 校验，社区共建公开数据
+
+Layer 3 — Data Flywheel (v0.2 新增) ⭐
+  └─ perceptkit-cloud crate（独立模块，opt-in feature）
+     用户/合作方主动启用 → 脱敏 trace 上传 → perceptkit-bench-internal
+     筛选审核后部分公开为 perceptkit-bench-v1
+     【core/audio/py 仍然零网络，cloud 是独立模块，详见 §12】
+
+Layer 4 — Vertical Data Asset (v0.2 新增) ⭐⭐
+  └─ perceptkit-bench-knowledge-work：旗舰 vertical 数据壁垒
+     VoxSign 脱敏数据 + 合作方数据 + 公开数据
+     目标：成为"知识工作者会议场景"领域 canonical benchmark
+     详见 §13
 ```
 
-### 11.3 "Signal 模型"承诺（§4 A 强化）
+### 11.3 Signal Model 修订：从"项目红线"降级为"部署选择"
 
-perceptkit **永不编译进 telemetry crate**，永不在二进制里埋 network call。用户想贡献数据必须：
+**v1.0 旧定义（已废弃）**：perceptkit 二进制永不有 network call。
+**v2.0 新定义**：
 
-1. 明确执行 `perceptkit export --case <id>` 生成人类可读的 YAML + metadata
-2. 眼睛看过内容
-3. 主动 git PR 到 `perceptkit-community/bench`（DCO 签署）
+| Crate | network 默认 | 工程保证 |
+|---|---|---|
+| `perceptkit-core` | **永远零网络** | `cargo deny` 持续封 reqwest/hyper/etc |
+| `perceptkit-audio` | **永远零网络** | 同上 |
+| `perceptkit-py` | **永远零网络** | 同上 |
+| **`perceptkit-cloud`**（新） | opt-in，默认 off | 独立 crate，独立 SBOM，**用户必须显式 build with `--features cloud`** 才能开启 |
 
-这比 DP 更强的信任承诺——"我们连采集的能力都没有"。
+**用户承诺重写**：
+> *旧*: "We can't collect your data because we don't have the ability to."
+> **新**: "Embedded mode (default) cannot collect your data. Cloud mode (opt-in) can — and we tell you exactly when, what, where, and let you turn it off any time."
+
+这给两个市场：
+- **嵌入式/合规客户**（医疗/法律/车载）: 用 core，零网络，承诺不变
+- **数据飞轮参与者**（OSS 开发者 / 合作伙伴 / VoxSign）: 用 cloud，opt-in 贡献数据换取更准确的 vertical 模型
+
+### 11.4 数据许可（沿用 v1.0 决策）
+
+| 层 | 许可 | 理由 |
+|---|---|---|
+| `perceptkit-bench-v0`（公开）| **CC-BY-NC 4.0** | 阻止商业克隆 |
+| 贡献数据（DCO 要求）| **CC0** | 无摩擦合并 |
+| Quickstart 样本（100 片段）| **CC0** | 降试用门槛 |
+| **`perceptkit-bench-internal`**（v0.2 新增）| **私有，VoxSign 控制** | 数据飞轮原始素材 |
+| **`perceptkit-bench-knowledge-work-v0`**（v0.2 新增）| CC-BY-NC | 旗舰 vertical 公开版 |
+
+### 11.5 VoxSign 数据处置（v2.0 修订：D2 → 数据流通）
+
+**v1.0 旧**：~~VoxSign 真实用户数据**不进入** perceptkit 公开 pipeline~~
+**v2.0 新**：
+
+```
+VoxSign 用户 (opt-in EULA)
+  ↓ 产生原始 trace
+voxsign-anonymizer (VoxSign 仓内独立工具)
+  ├─ 删除 PII / 声纹 hash / 时间戳粗化 / 文本 GPT 改写
+  └─ 法务+技术双签批准
+  ↓ 脱敏聚合数据
+perceptkit-bench-internal (私有仓, VoxSign 控制)
+  ↓ 训练默认 rules + tuning vertical scenes
+perceptkit-bench-knowledge-work-v0 (公开仓, CC-BY-NC)
+  └─ 仅人工挑选样本 + 二次脱敏 + 双签
+```
+
+**红线**：
+- ❌ 原始音频/文本/PII **永不**直接进 public 仓
+- ❌ 单 trace **永不**直传，最小聚合粒度 = 100 同类场景
+- ❌ VoxSign 客户数据被反向 codify 进 perceptkit 默认 scenes（保通用性）
+- ✅ 用户 opt-out 可立即停止后续贡献，已贡献数据保留
+
+### 11.6 数据质量门（沿用 v1.0 5 要求 + v2.0 vertical 扩展）
+
+所有贡献必须过 `perceptkit lint` + CI，新增 vertical-specific：
+
+1. Speaker-disjoint split（防 accuracy 虚高 10-20%）
+2. Kappa 漂移监控（每月 5% 抽样三标注员复核）
+3. 数据集版本化（v{major}.{minor}，老版永 frozen）
+4. 类别长尾保护（首要指标 macro-F1）
+5. 对抗样本防护（首贡 100% 人审 + reputation）
+6. **【v2.0 新增】Cross-vertical contamination check** — knowledge_work bench 不能掺入 driving / outdoor 等其他 vertical 数据
+7. **【v2.0 新增】Anonymization audit** — VoxSign 流入数据每季度抽样反向工程检查 (re-identification rate < 1%)
+
+### 11.7 数据集治理（沿用 v1.0）
+
+- **仓库**: `smithpeter/perceptkit-bench-v0`（v0.1）+ `smithpeter/perceptkit-bench-knowledge-work-v0`（v0.2）独立 repo
+- **托管**: HuggingFace Datasets 主渠道 + S3/IPFS mirror + sha 公证锁 GitHub Release
+- **贡献协议**: DCO（Kubernetes A/B 显示 CLA 降首贡 35%）
+- **审核**: 首贡 100% 人审 → 3+ 贡献后 10% 抽审 → 违规回到 100%
 
 ### 11.4 数据许可（B2 决策）
 
@@ -292,15 +373,142 @@ perceptkit **永不编译进 telemetry crate**，永不在二进制里埋 networ
 - **Model Card** — 每个 release 的模型/规则能力 + 限制 + biases
 - **Eval Card** — 评估流程 / 指标定义 / 基线对比 / 复现命令
 
-### 11.9 Moat 现实主义
+### 11.9 Moat 升级路径（v2.0 修订）
 
-路径 D 下，数据飞轮 ROI 为负（商业视角 Round D1）。数据战略的**真实价值**:
+**v1.0 旧（已过时）**：~~"路径 D 下数据飞轮 ROI 为负，数据战略只是建立可信度"~~
 
-- ❌ 不是升 Moat 到"中"（路径 D 下做不到）
-- ✅ **建立可信度** (credibility) — 让 repo 在 HN/VC/雇主眼中不是"玩具"
-- ✅ **为 VoxSign 背书** — "我们的感知层有 525 片段 labeled benchmark"
-- ✅ **个人面试信用** — HF dataset download 比 GitHub star 更 sticky
+**v2.0 新**（基于用户元假设激活）：
+- **数据飞轮是主路径**，不是辅助
+- 即使路径 D 不融资，**vertical 数据资产**本身就有商业转让价值（acquihire 时数据是核心资产，不是代码）
+- 接受度量：`perceptkit-bench-knowledge-work-v0` ≥ 200h labeled vertical data + ≥ 1 数据合作 LOI = "数据壁垒"维度从弱升中
 
-**接受**：perceptkit 最可能的终点是 Silero VAD 式（5-10k star，$0 ARR，被白嫖但赢得技术声誉）。这和路径 D 目标一致。
+**红蓝军 Round 5/6（2026-04-19）确认**：v1.0 数据战略在数据飞轮元假设下不成立，必须改写为 1C+2B+3C 组合。本 §11 v2.0 是新版本基线。未来变更须重新对抗。
 
-**参考本文件最终版本由红蓝军数据战略 Round D1 对抗（2026-04-18）确认。未来变更须重新对抗。**
+---
+
+## 12. Dual Form Factor（v2.0 新增）
+
+**1C 决策**：perceptkit 同时服务两个对立市场，靠**模块切分**而非"折中设计"。
+
+### 12.1 形态 A — Embedded / Compliance Mode
+
+**Crates**: `perceptkit-core` + `perceptkit-audio` + `perceptkit-py`
+
+**承诺**:
+- 零网络（cargo deny 持续封 reqwest/hyper/surf/ureq/awc）
+- 零 telemetry
+- 零强制依赖外部服务
+- SBOM 可审计，每个 release 附 `egress_audit.txt`
+
+**目标客户**: 医疗 / 法律 / 车载 / IoT / 隐私敏感个人开发者
+
+**叙事**: *"We can't collect your data. The binary doesn't have the ability."*
+
+### 12.2 形态 B — Cloud / Data Flywheel Mode
+
+**Crate**: `perceptkit-cloud`（v0.2 新增，独立 crate，独立 SBOM）
+
+**默认状态**: 不编译，不安装，不存在于 default workspace
+**启用方式**: `cargo add perceptkit-cloud` + 显式 `--features cloud` + 用户 init 时 explicit opt-in prompt
+
+**功能**:
+- `TelemetryReporter` — opt-in trace 上传（sanitized SceneDecision 只含 scene_id + confidence + timestamp，**不含原始 features 或 PCM**）
+- `DatasetUploader` — opt-in 完整 trace 贡献（带原始 features，**用户每次确认**，附 sanitization preview）
+- `RemoteReflector` — 可选远程 LLM Reflector（替代 LocalReflector，需 user-provided API key）
+
+**目标用户**: 数据飞轮参与者（VoxSign / 合作 OSS / 主动贡献者）
+
+**叙事**: *"You opt in, we tell you exactly what flows out, you can stop anytime, you get back better-tuned vertical scenes."*
+
+### 12.3 工程隔离保证
+
+- `perceptkit-cloud` **永远** depends on `perceptkit-core`，反向**永不**
+- core/audio/py 的 `cargo deny` 不放宽（cloud 在自己 deny.toml 管理）
+- CI 矩阵保留 "default profile（无 cloud）" 和 "cloud profile" 双跑
+- README 双 quickstart：embedded 在前（默认推荐），cloud 在 §"Contributing your data"
+
+### 12.4 失败模式预防
+
+- ❌ 不允许 core 暴露 hidden hook 让 cloud 旁路 opt-in（架构层 trait boundary 严格）
+- ❌ 不允许 cloud 反向修改 core API 让 telemetry 渗入默认路径
+- ❌ 不允许"为方便"打包 cloud 进 default wheel
+- ✅ Allowed: 用户主动 `pip install perceptkit[cloud]` 显式安装
+
+---
+
+## 13. Vertical Anchor — Knowledge Worker Meeting Scenes（v2.0 新增）
+
+**3C 决策**：通用框架（拉社区） + **1 个旗舰 vertical**（建数据壁垒）。
+
+### 13.1 vertical 选定理由
+
+锁定 **"知识工作者会议场景"**（knowledge_work），因为：
+
+1. **VoxSign 已有数据** — 数千小时真实会议音频 + 用户 opt-in 协议成熟（数据飞轮启动 day 1）
+2. **市场已验证** — Granola / Superwhisper / Wispr Flow / Otter / Krisp 都在这赛道，用户付费意愿验证过
+3. **TAM 够大** — 全球知识工作者 ~1B，活跃使用 AI 会议工具 ~50M，5 年 TAM ≥ $20B
+4. **数据稀缺真实** — 真实会议数据被各家锁起来，公开高质量 labeled 数据 < 50h（ICSI Meeting Corpus + AMI ≈ 100h 但口音单一年代久）
+5. **多模态需求强** — 音频 + 屏幕 app + 日历 + 麦克风类型 + 网络状态，正是 perceptkit Dual-Process 设计目标
+
+### 13.2 vertical 场景库（v0.2 ship）
+
+预置 10 个 scene YAML（区别于 v0.1 通用 5 场景）：
+
+| scene_id | 触发信号 | 用途 |
+|---|---|---|
+| `meeting_zoom` | context.app=Zoom + audio.voice_ratio>0.4 + audio.speaker_count>=2 | 主流程会议 |
+| `meeting_huddle` | context.app=Slack + huddle_indicator | 临时讨论 |
+| `interview_conducting` | meeting + 1 dominant speaker + scheduled "interview" calendar | 面试模式 |
+| `standup` | <15min + 3-8 speakers + recurring | 站会 |
+| `brainstorm` | meeting + high speaker_transitions + low silence | 头脑风暴 |
+| `1on1` | exactly 2 speakers + ≥20min + recurring | 1对1 |
+| `pair_coding` | meeting + IDE app foreground + low audio | 结对编程 |
+| `focus_writing` | no meeting + writing app foreground + low ambient | 专注写作 |
+| `async_recording` | recording app + 1 speaker + no meeting | 异步录制 |
+| `phone_call` | telephony + 1-2 speakers + non-meeting app | 电话 |
+
+每个带 rationale + evidence schema，支持 LocalReflector "Map / Propose / Unknown"。
+
+### 13.3 vertical bench 目标
+
+`smithpeter/perceptkit-bench-knowledge-work-v0`：
+
+| 维度 | v0.2 目标 | v0.3 目标 |
+|---|---|---|
+| 总时长 | ≥ 200h labeled | ≥ 1000h |
+| 来源多样性 | ≥ 3 数据源 (VoxSign + 公开 + 合作) | ≥ 5 |
+| 覆盖 scenes | 10 个全覆盖，单类 ≥ 30 | 单类 ≥ 100 |
+| 标注 kappa | ≥ 0.75（vertical 比通用容易达到） | ≥ 0.80 |
+| Macro-F1 baseline | ≥ 0.70 | ≥ 0.85 |
+
+### 13.4 vertical 不做什么（防 scope creep）
+
+- ❌ 不做实时转写（调用方接 Whisper）
+- ❌ 不做摘要 / action item（上层 agent 做）
+- ❌ 不做发言人识别（敏感 + 可被替代）
+- ❌ 不做情感分析（v0.4+ 评估）
+- ❌ 不固化为只服务 VoxSign 的 schema（保 vertical 通用性）
+
+### 13.5 通用框架的存在理由
+
+vertical anchor 之外仍保留通用 framework，因为：
+- 通用 framework 拉社区贡献其他 vertical（healthcare consultation / legal deposition / driving / smart home）
+- vertical 是"打样间"，通用是"操作系统"
+- 没有通用框架则 vertical 退化为 SaaS 式垂直产品，丧失 OSS 杠杆
+
+---
+
+## 14. v2.0 治理：决策审计
+
+v1.0 → v2.0 触发：用户元假设"数据是终极护城河"激活（2026-04-19）。
+
+| 章节 | v1.0 → v2.0 变化 | 理由 |
+|---|---|---|
+| §6 非目标 | "永不 telemetry" 改为 "core 永不、cloud 可选" | 1C dual form factor |
+| §11 数据战略 | 全章重写：Layer 3 复活，VoxSign 数据接入 | 数据飞轮元假设 |
+| §11.5 VoxSign | "不进 pipeline" 改为 "脱敏后入 internal 池" | 2B 代码独立 + 数据流通 |
+| §11.9 Moat | "可信度" 改为 "数据壁垒主路径" | 用户元假设直接推论 |
+| §12 (新) | dual form factor 显式定义 | 1C 落地 |
+| §13 (新) | vertical anchor 显式定义 | 3C 落地 |
+
+**v2.0 由红蓝军 Round 5/6（2026-04-19）对抗确认**。后续变更须新一轮对抗。
