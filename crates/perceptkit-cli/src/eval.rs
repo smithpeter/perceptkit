@@ -63,8 +63,13 @@ pub struct EvalReport {
     pub n: usize,
     pub top1_accuracy: f64,
     pub macro_f1: f64,
+    pub macro_precision: f64,
+    pub macro_recall: f64,
+    pub cohen_kappa: f64,
     pub per_class: HashMap<String, ClassMetrics>,
     pub unknown_count: usize,
+    /// rows = truth, cols = predicted (or "UNKNOWN")
+    pub confusion: HashMap<String, HashMap<String, usize>>,
 }
 
 impl EvalReport {
@@ -89,8 +94,11 @@ pub fn eval_cmd(scenes: &Path, dataset: &Path, gate: bool) -> Result<ExitCode> {
     let report = evaluate(&engine, dataset)?;
 
     println!("Evaluated {} samples", report.n);
-    println!("Top-1 accuracy: {:.4}", report.top1_accuracy);
-    println!("Macro-F1:       {:.4}", report.macro_f1);
+    println!("Top-1 accuracy:  {:.4}", report.top1_accuracy);
+    println!("Macro-F1:        {:.4}", report.macro_f1);
+    println!("Macro-precision: {:.4}", report.macro_precision);
+    println!("Macro-recall:    {:.4}", report.macro_recall);
+    println!("Cohen's kappa:   {:.4}", report.cohen_kappa);
     println!("Unknown predictions: {}", report.unknown_count);
     println!();
     println!("Per-scene:");
@@ -112,6 +120,33 @@ pub fn eval_cmd(scenes: &Path, dataset: &Path, gate: bool) -> Result<ExitCode> {
         );
     }
 
+    println!();
+    println!("Confusion matrix (rows=truth, cols=predicted):");
+    let mut all_classes: std::collections::BTreeSet<&str> =
+        report.per_class.keys().map(String::as_str).collect();
+    for predicted_set in report.confusion.values() {
+        for k in predicted_set.keys() {
+            all_classes.insert(k.as_str());
+        }
+    }
+    let cols: Vec<&str> = all_classes.iter().copied().collect();
+    print!("  {:<24}", "truth\\predicted");
+    for c in &cols {
+        let short = if c.len() > 8 { &c[..8] } else { c };
+        print!(" {:>8}", short);
+    }
+    println!();
+    let mut truth_names: Vec<_> = report.confusion.keys().collect();
+    truth_names.sort();
+    for truth in truth_names {
+        print!("  {:<24}", truth);
+        let row = &report.confusion[truth];
+        for c in &cols {
+            print!(" {:>8}", row.get(*c).copied().unwrap_or(0));
+        }
+        println!();
+    }
+
     if gate {
         if report.passes_v01_gate() {
             println!("\n✓ v0.1 gate passed (Top-1 ≥0.78, Macro-F1 ≥0.72, per-scene recall ≥0.70)");
@@ -131,6 +166,7 @@ pub fn evaluate(engine: &SceneEngine, dataset: &Path) -> Result<EvalReport> {
     let reader = BufReader::new(file);
 
     let mut per_class: HashMap<String, ClassMetrics> = HashMap::new();
+    let mut confusion: HashMap<String, HashMap<String, usize>> = HashMap::new();
     let mut correct = 0_usize;
     let mut total = 0_usize;
     let mut unknown_count = 0_usize;
@@ -156,8 +192,14 @@ pub fn evaluate(engine: &SceneEngine, dataset: &Path) -> Result<EvalReport> {
         let decision = engine.evaluate(&bundle);
         let truth = &row.label;
         let pred = decision.scene_id.as_deref();
+        let pred_label = pred.unwrap_or("UNKNOWN").to_string();
 
         per_class.entry(truth.clone()).or_default().support += 1;
+        *confusion
+            .entry(truth.clone())
+            .or_default()
+            .entry(pred_label.clone())
+            .or_default() += 1;
 
         total += 1;
         match pred {
@@ -180,20 +222,68 @@ pub fn evaluate(engine: &SceneEngine, dataset: &Path) -> Result<EvalReport> {
         correct as f64 / total as f64
     };
 
-    // Macro-F1 over classes with non-zero support (real ground-truth labels).
+    // Macro-F1 / precision / recall over classes with non-zero support
+    // (real ground-truth labels).
     let labeled: Vec<&ClassMetrics> = per_class.values().filter(|m| m.support > 0).collect();
+    let n_labeled = labeled.len() as f64;
     let macro_f1 = if labeled.is_empty() {
         0.0
     } else {
-        labeled.iter().map(|m| m.f1()).sum::<f64>() / labeled.len() as f64
+        labeled.iter().map(|m| m.f1()).sum::<f64>() / n_labeled
+    };
+    let macro_precision = if labeled.is_empty() {
+        0.0
+    } else {
+        labeled.iter().map(|m| m.precision()).sum::<f64>() / n_labeled
+    };
+    let macro_recall = if labeled.is_empty() {
+        0.0
+    } else {
+        labeled.iter().map(|m| m.recall()).sum::<f64>() / n_labeled
+    };
+
+    // Cohen's kappa = (p_o - p_e) / (1 - p_e)
+    // p_o = observed agreement = top-1 accuracy
+    // p_e = expected agreement under marginal independence
+    let cohen_kappa = if total == 0 {
+        0.0
+    } else {
+        let p_o = top1;
+        // Marginal frequencies (truth and predicted), restricted to known classes.
+        let mut truth_marginal: HashMap<&str, usize> = HashMap::new();
+        let mut pred_marginal: HashMap<&str, usize> = HashMap::new();
+        for (truth, row) in &confusion {
+            for (pred, count) in row {
+                *truth_marginal.entry(truth.as_str()).or_default() += count;
+                *pred_marginal.entry(pred.as_str()).or_default() += count;
+            }
+        }
+        let total_f = total as f64;
+        let p_e: f64 = truth_marginal
+            .iter()
+            .map(|(c, t)| {
+                let p = pred_marginal.get(c).copied().unwrap_or(0) as f64 / total_f;
+                let t = *t as f64 / total_f;
+                p * t
+            })
+            .sum();
+        if (1.0 - p_e).abs() < 1e-12 {
+            0.0
+        } else {
+            (p_o - p_e) / (1.0 - p_e)
+        }
     };
 
     Ok(EvalReport {
         n: total,
         top1_accuracy: top1,
         macro_f1,
+        macro_precision,
+        macro_recall,
+        cohen_kappa,
         per_class,
         unknown_count,
+        confusion,
     })
 }
 
@@ -232,5 +322,22 @@ mod tests {
         assert_eq!(m.precision(), 0.0);
         assert_eq!(m.recall(), 0.0);
         assert_eq!(m.f1(), 0.0);
+    }
+
+    #[test]
+    fn empty_report_has_zero_kappa() {
+        // Edge case: zero-sample evaluation should yield kappa = 0, not NaN.
+        let r = EvalReport {
+            n: 0,
+            top1_accuracy: 0.0,
+            macro_f1: 0.0,
+            macro_precision: 0.0,
+            macro_recall: 0.0,
+            cohen_kappa: 0.0,
+            per_class: HashMap::new(),
+            unknown_count: 0,
+            confusion: HashMap::new(),
+        };
+        assert!(r.cohen_kappa.is_finite());
     }
 }

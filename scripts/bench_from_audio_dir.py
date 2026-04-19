@@ -163,20 +163,78 @@ def main() -> int:
             fout.write("\n")
 
     total = len(out_records)
+    if total == 0:
+        print("no clips processed")
+        return 1
     correct = sum(1 for r in out_records if r["correct"])
     print(f"Processed {total} clips")
-    print(f"Top-1 accuracy: {correct}/{total} = {correct/total:.4f}" if total else "no clips")
+    print(f"Top-1 accuracy: {correct}/{total} = {correct / total:.4f}")
 
-    # Per-scene breakdown
+    # Per-scene precision / recall / F1 + macro averages
     from collections import Counter, defaultdict
 
-    per_scene_total = Counter(r["label"] for r in out_records)
-    per_scene_correct = Counter(r["label"] for r in out_records if r["correct"])
-    print("\nPer-scene recall:")
-    for scene in sorted(per_scene_total):
-        total_s = per_scene_total[scene]
-        correct_s = per_scene_correct[scene]
-        print(f"  {scene:<24} {correct_s:>3}/{total_s:<3} = {correct_s/total_s:.4f}")
+    truth_counts: Counter[str] = Counter()
+    pred_counts: Counter[str] = Counter()
+    tp: Counter[str] = Counter()
+    confusion: dict[str, Counter[str]] = defaultdict(Counter)
+
+    for r in out_records:
+        truth = r["label"]
+        pred = r["predicted_scene_id"] or "UNKNOWN"
+        truth_counts[truth] += 1
+        pred_counts[pred] += 1
+        confusion[truth][pred] += 1
+        if r["correct"]:
+            tp[truth] += 1
+
+    macro_p, macro_r, macro_f1 = 0.0, 0.0, 0.0
+    n_classes = len(truth_counts)
+    print("\nPer-scene metrics:")
+    print(f"  {'scene':<24} {'support':>8} {'prec':>8} {'recall':>8} {'f1':>8}")
+    for scene in sorted(truth_counts):
+        support = truth_counts[scene]
+        truth_pos = support
+        pred_pos = pred_counts.get(scene, 0)
+        scene_tp = tp[scene]
+        prec = scene_tp / pred_pos if pred_pos else 0.0
+        rec = scene_tp / truth_pos if truth_pos else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+        macro_p += prec
+        macro_r += rec
+        macro_f1 += f1
+        print(f"  {scene:<24} {support:>8} {prec:>8.4f} {rec:>8.4f} {f1:>8.4f}")
+    if n_classes:
+        macro_p /= n_classes
+        macro_r /= n_classes
+        macro_f1 /= n_classes
+
+    print()
+    print(f"Macro-precision: {macro_p:.4f}")
+    print(f"Macro-recall:    {macro_r:.4f}")
+    print(f"Macro-F1:        {macro_f1:.4f}")
+
+    # Cohen's kappa: (p_o - p_e) / (1 - p_e)
+    p_o = correct / total
+    # marginal independence over the union of label/prediction classes
+    all_classes = set(truth_counts) | set(pred_counts)
+    p_e = sum(
+        (truth_counts.get(c, 0) / total) * (pred_counts.get(c, 0) / total)
+        for c in all_classes
+    )
+    if abs(1 - p_e) < 1e-12:
+        kappa = 0.0
+    else:
+        kappa = (p_o - p_e) / (1 - p_e)
+    print(f"Cohen's kappa:   {kappa:.4f}")
+
+    # Confusion matrix
+    cols = sorted(set(c for row in confusion.values() for c in row))
+    print("\nConfusion (rows=truth, cols=predicted):")
+    print("  " + f"{'truth\\pred':<24}" + "".join(f" {c[:8]:>8}" for c in cols))
+    for truth in sorted(confusion):
+        print(
+            "  " + f"{truth:<24}" + "".join(f" {confusion[truth].get(c, 0):>8}" for c in cols)
+        )
 
     return 0
 
