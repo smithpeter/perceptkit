@@ -4,8 +4,14 @@ describe:
   template: "多人对话"
 match:
   all:
-    - { feature: audio.voice_ratio, op: gt, value: 0.5 }
+    # Heuristic speaker count >= 2 (activity transitions ≥ 2/s).
+    # Catches crowd / laughter / multi-speaker conversation patterns
+    # via the activity_transitions_per_sec heuristic in
+    # MultiSpeakerExtractor (v0.2 upgrade from stub).
     - { feature: audio.speaker_count, op: gte, value: 2 }
+    # Sound activity floor (rule out silence).
+    - { feature: audio.rms_db, op: gt, value: -25.0 }
   none:
+    # Not a meeting app (those go to online_meeting via context.app).
     - { feature: context.app, op: in, value: [zoom.us, Zoom, Teams, Feishu] }
 priority: 7

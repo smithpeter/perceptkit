@@ -56,7 +56,8 @@ impl VoiceActivityExtractor {
     }
 }
 
-/// Zero-crossing rate per sample.
+/// Zero-crossing rate per sample. Public so other extractors (speaker
+/// estimator, future MFCC) can reuse without re-implementing.
 pub fn zero_crossing_rate(pcm: &[f32]) -> f64 {
     if pcm.len() < 2 {
         return 0.0;

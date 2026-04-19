@@ -24,7 +24,7 @@ pub fn audio_descriptors() -> Vec<FeatureDescriptor> {
     let mut out = Vec::new();
     out.extend(EnergyExtractor.descriptors());
     out.extend(VoiceActivityExtractor::default().descriptors());
-    out.extend(MultiSpeakerExtractor.descriptors());
+    out.extend(MultiSpeakerExtractor::default().descriptors());
     out.extend(SpectralExtractor::default().descriptors());
     out
 }

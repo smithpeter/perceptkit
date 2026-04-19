@@ -36,7 +36,7 @@ impl AudioProvider {
             extractors: vec![
                 Box::new(EnergyExtractor),
                 Box::new(VoiceActivityExtractor::default()),
-                Box::new(MultiSpeakerExtractor),
+                Box::new(MultiSpeakerExtractor::default()),
                 Box::new(SpectralExtractor::default()),
             ],
         }
@@ -96,8 +96,8 @@ mod tests {
         let pcm = vec![0.5_f32; 16000];
         let b = p.process(&pcm, 16000, 12345.6);
         assert_eq!(b.timestamp, 12345.6);
-        // Energy (4) + VAD (3) + Speaker (1) + Spectral (3) = 11
-        assert_eq!(b.len(), 11);
+        // Energy (4) + VAD (3) + Speaker (2) + Spectral (3) = 12
+        assert_eq!(b.len(), 12);
         assert!(b.get_str("audio.rms").is_some());
         assert!(b.get_str("audio.voice_activity").is_some());
         assert!(b.get_str("audio.speaker_count").is_some());
